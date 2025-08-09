@@ -1,103 +1,412 @@
-import Image from "next/image";
+"use client";
+import Link from "next/link";
+import { useEffect, useState, useMemo } from "react";
+import { auth } from "@/lib/firebase";
+import { onAuthStateChanged } from "firebase/auth";
+import { apiFetch } from "@/lib/clientApi";
+import { Montserrat } from "next/font/google";
+
+const displayFont = Montserrat({
+  subsets: ["latin"],
+  weight: ["700", "800", "900"],
+});
 
 export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              app/page.js
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [user, setUser] = useState(null);
+  const [events, setEvents] = useState([]);
+  const [loadingEvents, setLoadingEvents] = useState(true);
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (u) => setUser(u));
+    return () => unsub();
+  }, []);
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const data = await apiFetch("/api/events");
+        if (mounted) setEvents(data.slice(0, 6));
+      } catch {
+      } finally {
+        if (mounted) setLoadingEvents(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+  return (
+    <div className="relative min-h-screen">
+      <BaseBackground />
+      <Hero user={user} />
+      <FeaturedSection events={events} loading={loadingEvents} />
+      <HowItWorks />
+      <SiteFooter />
+      <style jsx global>{`
+        .glass-card {
+          background: rgba(23, 32, 48, 0.72);
+          border: 1px solid rgba(120, 160, 200, 0.08);
+          backdrop-filter: blur(8px);
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .no-motion {
+            animation: none !important;
+          }
+        }
+      `}</style>
     </div>
+  );
+}
+
+function Hero({ user }) {
+  return (
+    <section className="relative flex flex-col justify-center pt-24 md:pt-32 pb-24">
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute -top-32 left-1/2 -translate-x-1/2 w-[780px] h-[780px] rounded-full bg-[radial-gradient(circle_at_center,rgba(6,182,212,0.18),transparent_60%)]" />
+      </div>
+      <div className="relative mx-auto max-w-5xl px-4">
+        <h1
+          className={`${displayFont.className} text-5xl md:text-6xl font-extrabold tracking-tight leading-tight text-transparent bg-clip-text bg-gradient-to-r from-[#06b6d4] via-[#6366f1] to-[#84cc16]`}
+        >
+          Predict the Future. <span className="inline-block">Win Big.</span>
+        </h1>
+        <p className="mt-6 max-w-2xl text-lg md:text-xl text-slate-300 leading-relaxed font-medium">
+          Stake virtual coins on real outcomes & learn from collective
+          intelligence in live markets.
+        </p>
+        <div className="mt-8 flex flex-wrap gap-4 items-center">
+          <Link
+            href="/events"
+            className="relative inline-flex items-center rounded-full px-8 py-3 text-sm font-semibold text-white bg-gradient-to-r from-[#06b6d4] to-[#6366f1] hover:from-[#0891b2] hover:to-[#4f46e5] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#06b6d4] focus:ring-offset-[#0b0f19] transition shadow-md"
+          >
+            Get Started
+            <svg
+              className="ml-2 w-4 h-4"
+              stroke="currentColor"
+              strokeWidth="2"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M5 12h14M13 5l7 7-7 7"
+              />
+            </svg>
+          </Link>
+          {!user && (
+            <Link
+              href="/auth/signup"
+              className="inline-flex items-center rounded-full px-7 py-3 text-sm font-semibold border border-slate-600/60 text-slate-200 hover:text-white hover:border-slate-400/70 transition bg-slate-800/40 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-600 focus:ring-offset-[#0b0f19]"
+            >
+              Join Now
+            </Link>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function FeaturedSection({ events, loading }) {
+  return (
+    <section className="relative z-10 px-4 pb-20 -mt-10">
+      <div className="max-w-6xl mx-auto">
+        <div className="flex items-end justify-between mb-8">
+          <h2 className="text-2xl font-semibold tracking-tight text-white">
+            Featured Events
+          </h2>
+          <Link
+            href="/events"
+            className="text-xs font-semibold text-[#2563eb] hover:underline"
+          >
+            View All →
+          </Link>
+        </div>
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {loading &&
+            Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="h-40 rounded-2xl skeleton" />
+            ))}
+          {!loading && events.map((ev) => <EventCard key={ev.id} ev={ev} />)}
+          {!loading && events.length === 0 && (
+            <div className="col-span-full text-sm text-slate-400">
+              No events yet. Seed some markets to get started.
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function EventCard({ ev }) {
+  const total = (ev.stakeYes || 0) + (ev.stakeNo || 0);
+  const yesPct = total ? Math.round(((ev.stakeYes || 0) / total) * 100) : 0;
+  return (
+    <Link
+      href={`/events/${ev.id}`}
+      className="group relative rounded-xl p-4 flex flex-col gap-3 glass-card hover:shadow-lg transition-shadow"
+    >
+      <h3 className="text-sm font-semibold leading-snug text-slate-100 line-clamp-3 group-hover:text-white">
+        {ev.title}
+      </h3>
+      <div className="h-2 rounded-full bg-slate-700/40 overflow-hidden">
+        <div
+          style={{ width: `${yesPct}%` }}
+          className="h-full bg-gradient-to-r from-[#06b6d4] to-[#6366f1] transition-[width] duration-500"
+        />
+      </div>
+      <div className="flex items-center justify-between text-[10px] uppercase tracking-wide font-semibold text-slate-400">
+        <span className="flex items-center gap-1">
+          <Dot color="#06b6d4" /> YES {yesPct}%
+        </span>
+        <span className="flex items-center gap-1">
+          <Dot color="#6366f1" /> NO {100 - yesPct}%
+        </span>
+      </div>
+    </Link>
+  );
+}
+
+function Dot({ color }) {
+  return (
+    <span
+      className="inline-block w-2 h-2 rounded-full"
+      style={{ background: color }}
+    />
+  );
+}
+
+function HowItWorks() {
+  const steps = useMemo(
+    () => [
+      {
+        icon: GearIcon,
+        title: "Create or Join",
+        desc: "Browse live events and pick a side — YES or NO.",
+      },
+      {
+        icon: PulseIcon,
+        title: "Shift Probabilities",
+        desc: "Your stake instantly moves the market odds live.",
+      },
+      {
+        icon: TrophyIcon,
+        title: "Outcomes Resolve",
+        desc: "When an event settles, winners receive proportional rewards.",
+      },
+    ],
+    []
+  );
+  return (
+    <section className="relative z-10 px-4 pb-28 pt-10">
+      <div className="max-w-6xl mx-auto">
+        <h2 className="text-2xl font-semibold mb-10 text-white tracking-tight">
+          How It Works
+        </h2>
+        <div className="grid md:grid-cols-3 gap-8">
+          {steps.map((s) => (
+            <StepCard key={s.title} {...s} />
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function StepCard({ icon: Icon, title, desc }) {
+  return (
+    <div className="relative group rounded-2xl p-6 glass-card border border-slate-600/30 hover:border-slate-400/70 transition">
+      <div className="absolute -inset-px rounded-2xl opacity-0 group-hover:opacity-100 bg-[linear-gradient(120deg,rgba(37,99,235,0.15),rgba(109,40,217,0.15),rgba(236,72,153,0.15))] blur-xl transition" />
+      <div className="relative flex flex-col gap-4">
+        <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-[#2563eb] via-[#6d28d9] to-[#ec4899] p-[2px] shadow-lg shadow-black/40">
+          <div className="h-full w-full rounded-[10px] bg-slate-900/80 grid place-items-center">
+            <Icon className="w-6 h-6 text-white" />
+          </div>
+        </div>
+        <h3 className="text-sm font-semibold text-white tracking-wide">
+          {title}
+        </h3>
+        <p className="text-xs leading-relaxed text-slate-400">{desc}</p>
+      </div>
+    </div>
+  );
+}
+
+function SiteFooter() {
+  return (
+    <footer className="relative z-10 border-t border-slate-800/60 bg-[#0b0f19]/70 backdrop-blur px-4 py-12 text-slate-400 text-xs">
+      <div className="max-w-6xl mx-auto flex flex-col md:flex-row gap-10 md:gap-16">
+        <div className="flex-1">
+          <div className="text-sm font-semibold text-white mb-3">PredictX</div>
+          <p className="max-w-xs leading-relaxed">
+            Futuristic virtual prediction exchange. Sharpen your forecasting
+            skill and learn from collective intelligence.
+          </p>
+          <div className="mt-4 flex gap-3">
+            <SocialIcon
+              href="https://twitter.com"
+              label="Twitter"
+              svg={
+                <path d="M19.633 7.997c.013.18.013.36.013.54 0 5.49-4.18 11.82-11.82 11.82-2.35 0-4.53-.69-6.37-1.88.33.04.65.05.99.05 1.94 0 3.72-.66 5.14-1.78a4.17 4.17 0 01-3.89-2.89c.25.04.5.07.77.07.37 0 .73-.05 1.07-.14a4.16 4.16 0 01-3.34-4.08v-.05c.56.31 1.21.5 1.9.52a4.15 4.15 0 01-1.85-3.45c0-.76.2-1.47.56-2.08a11.8 11.8 0 008.57 4.35 4.69 4.69 0 01-.1-.95 4.16 4.16 0 014.16-4.16c1.2 0 2.29.5 3.05 1.3a8.18 8.18 0 002.64-1.01 4.13 4.13 0 01-1.83 2.3 8.3 8.3 0 002.39-.64 8.94 8.94 0 01-2.08 2.14z" />
+              }
+            />
+            <SocialIcon
+              href="https://github.com"
+              label="GitHub"
+              svg={
+                <path
+                  fillRule="evenodd"
+                  clipRule="evenodd"
+                  d="M12 2C6.48 2 2 6.58 2 12.26c0 4.5 2.87 8.32 6.84 9.67.5.1.68-.22.68-.48 0-.24-.01-.87-.01-1.71-2.78.62-3.37-1.37-3.37-1.37-.45-1.18-1.11-1.5-1.11-1.5-.91-.64.07-.63.07-.63 1 .07 1.53 1.05 1.53 1.05.9 1.57 2.36 1.12 2.94.85.09-.67.35-1.12.63-1.38-2.22-.26-4.56-1.14-4.56-5.09 0-1.13.39-2.06 1.02-2.78-.1-.26-.45-1.3.1-2.71 0 0 .84-.28 2.75 1.06A9.18 9.18 0 0112 6.84c.85.01 1.71.12 2.51.34 1.9-1.34 2.74-1.06 2.74-1.06.55 1.41.2 2.45.1 2.71.63.72 1.01 1.65 1.01 2.78 0 3.96-2.34 4.82-4.57 5.07.36.32.67.94.67 1.9 0 1.38-.01 2.49-.01 2.83 0 .26.18.58.69.48A10.05 10.05 0 0022 12.26C22 6.58 17.52 2 12 2z"
+                />
+              }
+            />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-8 text-[11px]">
+          <div>
+            <div className="mb-3 font-semibold text-white text-xs">Product</div>
+            <ul className="space-y-2">
+              <li>
+                <Link href="/events" className="hover:text-white transition">
+                  Events
+                </Link>
+              </li>
+              <li>
+                <Link href="/profile" className="hover:text-white transition">
+                  Profile
+                </Link>
+              </li>
+            </ul>
+          </div>
+          <div>
+            <div className="mb-3 font-semibold text-white text-xs">Company</div>
+            <ul className="space-y-2">
+              <li>
+                <a href="#" className="hover:text-white transition">
+                  About
+                </a>
+              </li>
+              <li>
+                <a href="#" className="hover:text-white transition">
+                  Careers
+                </a>
+              </li>
+            </ul>
+          </div>
+          <div>
+            <div className="mb-3 font-semibold text-white text-xs">Legal</div>
+            <ul className="space-y-2">
+              <li>
+                <a href="#" className="hover:text-white transition">
+                  Terms
+                </a>
+              </li>
+              <li>
+                <a href="#" className="hover:text-white transition">
+                  Privacy
+                </a>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div className="mt-12 text-[10px] text-slate-500 tracking-wide">
+        © {new Date().getFullYear()} PredictX. All rights reserved.
+      </div>
+    </footer>
+  );
+}
+
+function SocialIcon({ href, label, svg }) {
+  return (
+    <a
+      href={href}
+      aria-label={label}
+      className="h-8 w-8 grid place-items-center rounded-full bg-slate-800/70 border border-slate-600/40 hover:border-slate-400/70 text-slate-300 hover:text-white transition"
+    >
+      <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current">
+        {svg}
+      </svg>
+    </a>
+  );
+}
+
+function AnimatedBackground() {
+  return null;
+}
+
+function BaseBackground() {
+  return (
+    <div className="pointer-events-none fixed inset-0 -z-10 bg-[#0b1018] [background:radial-gradient(circle_at_25%_30%,#0d273233,transparent_60%),radial-gradient(circle_at_80%_70%,#152c4333,transparent_55%)]" />
+  );
+}
+
+function NoiseLayer() {
+  return null;
+}
+
+// Inline SVG Icon Components
+function GearIcon(props) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      fill="none"
+      {...props}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M12 15.5a3.5 3.5 0 100-7 3.5 3.5 0 000 7z"
+      />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09c.7 0 1.31-.4 1.51-1a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06c.46.46 1.12.6 1.82.33.61-.25 1-.83 1-1.51V3a2 2 0 014 0v.09c0 .7.39 1.26 1 1.51.7.27 1.36.13 1.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06c-.46.46-.6 1.12-.33 1.82.25.6.83 1 1.51 1H21a2 2 0 010 4h-.09c-.7 0-1.26.39-1.51 1z"
+      />
+    </svg>
+  );
+}
+function PulseIcon(props) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      fill="none"
+      {...props}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M3 12h3l2.5 6L13 6l2.5 6H21"
+      />
+    </svg>
+  );
+}
+function TrophyIcon(props) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      fill="none"
+      {...props}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M8 21h8M12 17v4M7 4h10v5a5 5 0 01-10 0V4z"
+      />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M7 6H5a2 2 0 00-2 2v1a4 4 0 004 4M17 6h2a2 2 0 012 2v1a4 4 0 01-4 4"
+      />
+    </svg>
   );
 }

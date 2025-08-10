@@ -182,28 +182,34 @@ export default function BetForm({
     setError(null);
     const p = Number(normalizedPrice);
     const q = Number(quantity);
-    // Basic + market validation
     if (!Number.isFinite(p) || p <= 0)
       return setError("Price must be greater than 0");
     if (p > 10) return setError("Price cannot exceed ₹10");
     if (!Number.isFinite(q) || q <= 0)
       return setError("Quantity must be greater than 0");
-    if (useSide === "yes" && bestOppositePrice && p < bestOppositePrice)
-      return setError(
-        `Price too low. Must be ≥ best NO price ₹${bestOppositePrice}`
-      );
-    if (useSide === "no" && bestOppositePrice && p > bestOppositePrice)
-      return setError(
-        `Price too high. Must be ≤ best YES price ₹${bestOppositePrice}`
-      );
-    if (maxQtyAtPrice && q > maxQtyAtPrice)
-      return setError(
-        `Quantity exceeds available liquidity (${maxQtyAtPrice}) at this price`
-      );
     setLoading(true);
     try {
-      // Place new order in Firestore
-      const cost = Number((p * q).toFixed(2));
+      // Query open opposite orders at this price (outside transaction)
+      let matchSide = useSide === "yes" ? "no" : "yes";
+      const oppOrdersQuery = await import("firebase/firestore").then(
+        ({ query, where, getDocs, orderBy }) => {
+          return query(
+            collection(db, "orders"),
+            where("eventId", "==", eventId),
+            where("side", "==", matchSide),
+            where("price", "==", p),
+            where("status", "==", "open"),
+            where("quantityRemaining", ">", 0),
+            orderBy("createdAt", "asc")
+          );
+        }
+      );
+      const { getDocs } = await import("firebase/firestore");
+      const oppOrdersSnap = await getDocs(oppOrdersQuery);
+      const oppOrders = oppOrdersSnap.docs.map((d) => ({
+        id: d.id,
+        ...d.data(),
+      }));
       await runTransaction(db, async (tx) => {
         if (!userId) throw new Error("Not signed in");
         const userRef = doc(db, "users", userId);
@@ -211,39 +217,126 @@ export default function BetForm({
         if (!userSnap.exists()) throw new Error("User not found");
         const userData = userSnap.data();
         if (userData.balance == null) throw new Error("No balance field");
-        if (userData.balance < cost) throw new Error("Insufficient balance");
-        const ordersCol = collection(db, "orders");
-        const orderRef = doc(ordersCol); // create new doc ref
-        tx.set(orderRef, {
-          eventId,
-          userId,
-          side: useSide,
-          price: p,
-          quantity: q,
-          quantityRemaining: q, // future partial fills
-          lockedAmount: cost,
-          status: "open",
-          createdAt: serverTimestamp(),
-        });
+        let remainingQty = q;
+        let totalCost = 0;
+        let totalMatched = 0;
+        for (const opp of oppOrders) {
+          if (remainingQty <= 0) break;
+          const fillQty = Math.min(remainingQty, opp.quantityRemaining);
+          // Update matched order
+          const oppOrderRef = doc(db, "orders", opp.id);
+          tx.update(oppOrderRef, {
+            quantityRemaining: opp.quantityRemaining - fillQty,
+            status: opp.quantityRemaining - fillQty === 0 ? "filled" : "open",
+          });
+          // Update this user's balance (they pay for fillQty * price)
+          totalCost += fillQty * p;
+          totalMatched += fillQty;
+          // Credit counterparty user
+          const counterpartyRef = doc(db, "users", opp.userId);
+          const counterpartySnap = await tx.get(counterpartyRef);
+          if (counterpartySnap.exists()) {
+            const counterparty = counterpartySnap.data();
+            // Release lockedAmount for filled qty, add payout
+            const refund = fillQty * p;
+            const payout = fillQty * 10;
+            tx.update(counterpartyRef, {
+              balance: Number(
+                (counterparty.balance + refund + payout - refund).toFixed(2)
+              ),
+              updatedAt: serverTimestamp(),
+            });
+            // Ledger for counterparty
+            const ledgerRef = doc(
+              collection(db, "users", opp.userId, "ledger")
+            );
+            tx.set(ledgerRef, {
+              type: "order_fill",
+              eventId,
+              orderId: opp.id,
+              amount: payout,
+              side: opp.side,
+              price: p,
+              quantity: fillQty,
+              createdAt: serverTimestamp(),
+            });
+          }
+          // Create bet for both users
+          const betsCol = collection(db, "bets");
+          const betRef = doc(betsCol);
+          tx.set(betRef, {
+            eventId,
+            price: p,
+            quantity: fillQty,
+            yesUserId: useSide === "yes" ? userId : opp.userId,
+            noUserId: useSide === "no" ? userId : opp.userId,
+            createdAt: serverTimestamp(),
+          });
+          remainingQty -= fillQty;
+        }
+        // Deduct only for matched qty
+        if (userData.balance < totalCost)
+          throw new Error("Insufficient balance for matched orders");
         tx.update(userRef, {
-          balance: Number((userData.balance - cost).toFixed(2)),
+          balance: Number((userData.balance - totalCost).toFixed(2)),
           updatedAt: serverTimestamp(),
         });
-        const ledgerRef = doc(collection(db, "users", userId, "ledger"));
-        tx.set(ledgerRef, {
-          type: "order_place",
-          eventId,
-          orderId: orderRef.id,
-          amount: -cost,
-          side: useSide,
-          price: p,
-          quantity: q,
-          createdAt: serverTimestamp(),
-        });
+        // Ledger for this user
+        if (totalMatched > 0) {
+          const ledgerRef = doc(collection(db, "users", userId, "ledger"));
+          tx.set(ledgerRef, {
+            type: "order_fill",
+            eventId,
+            amount: -totalCost,
+            side: useSide,
+            price: p,
+            quantity: totalMatched,
+            createdAt: serverTimestamp(),
+          });
+        }
+        // If any remaining, rest as open order and lock funds
+        if (remainingQty > 0) {
+          const restCost = Number((remainingQty * p).toFixed(2));
+          if (userData.balance < totalCost + restCost)
+            throw new Error("Insufficient balance for resting order");
+          const ordersCol = collection(db, "orders");
+          const orderRef = doc(ordersCol);
+          tx.set(orderRef, {
+            eventId,
+            userId,
+            side: useSide,
+            price: p,
+            quantity: remainingQty,
+            quantityRemaining: remainingQty,
+            lockedAmount: restCost,
+            status: "open",
+            createdAt: serverTimestamp(),
+          });
+          tx.update(userRef, {
+            balance: Number(
+              (userData.balance - totalCost - restCost).toFixed(2)
+            ),
+            updatedAt: serverTimestamp(),
+          });
+          const ledgerRef = doc(collection(db, "users", userId, "ledger"));
+          tx.set(ledgerRef, {
+            type: "order_place",
+            eventId,
+            orderId: orderRef.id,
+            amount: -restCost,
+            side: useSide,
+            price: p,
+            quantity: remainingQty,
+            createdAt: serverTimestamp(),
+          });
+        }
       });
       setQuantity("");
       onClearSelected?.();
-      push(`Order placed: ${useSide.toUpperCase()} @ ₹${p} × ${q}`, "info");
+      push(
+        `Order placed: ${useSide.toUpperCase()} @ ₹${p} × ${q} (matched/placed)`,
+        "info"
+      );
       onPlaced?.();
     } catch (err) {
       setError(err.message || "Failed to place order");

@@ -45,26 +45,25 @@ export default function BetForm({ eventId, onPlaced }) {
   return (
     <form
       onSubmit={submit}
-      className="group relative overflow-hidden rounded-xl border border-[var(--c-border)] bg-gradient-to-br from-[var(--c-base-800)] via-[var(--c-base-900)] to-[#0c1018] p-4 flex flex-col gap-4 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.4)]"
+      className="relative overflow-hidden rounded-xl border border-neutral-800 bg-neutral-900 p-4 flex flex-col gap-4 shadow-lg"
     >
-      <div className="absolute inset-0 pointer-events-none opacity-0 group-hover:opacity-100 transition bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.06),transparent_60%)]" />
       <div className="flex flex-col gap-4">
-        <div className="inline-flex self-center p-1 rounded-lg bg-[var(--c-base-700)] border border-[var(--c-border)] mb-2">
+        <div className="inline-flex self-center p-1 rounded-lg bg-neutral-800 border border-neutral-700 mb-2">
           {["yes", "no"].map((s) => (
             <button
               key={s}
               type="button"
               onClick={() => setSide(s)}
-              className={`relative px-4 py-1.5 text-xs sm:text-sm font-medium rounded-md transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)] ${
+              className={`relative px-4 py-1.5 text-xs sm:text-sm font-medium rounded-md transition focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 ${
                 side === s
-                  ? "text-white"
-                  : "text-[var(--c-text-secondary)] hover:text-[var(--c-text-primary)]"
+                  ? s === "yes"
+                    ? "bg-[#0a3d62] text-white shadow"
+                    : "bg-[#7b1113] text-white shadow"
+                  : "text-neutral-400 hover:text-white"
               }`}
+              style={{ zIndex: 1 }}
             >
-              <span className="relative z-10">{s.toUpperCase()}</span>
-              {side === s && (
-                <span className="absolute inset-0 rounded-md bg-gradient-to-r from-[var(--accent-primary,#2563EB)] to-[var(--accent-secondary,#EC4899)] shadow-[0_0_0_1px_rgba(255,255,255,0.08)_inset]" />
-              )}
+              {s.toUpperCase()}
             </button>
           ))}
         </div>
@@ -76,49 +75,35 @@ export default function BetForm({ eventId, onPlaced }) {
               value={stake}
               onChange={(e) => setStake(e.target.value)}
               placeholder="Stake"
-              className="w-full peer bg-[var(--c-base-900)]/70 border border-[var(--c-border)] rounded-md px-3 py-3 text-base focus:outline-none focus:border-[var(--accent-primary)] placeholder:text-[var(--c-text-tertiary)]"
+              className="w-full peer bg-neutral-900 border border-neutral-700 rounded-md px-3 py-3 text-base text-white focus:outline-none focus:border-cyan-500 placeholder:text-neutral-500"
             />
-            <span className="pointer-events-none absolute -top-2 left-2 bg-[var(--c-base-900)] px-1 text-[11px] font-medium text-[var(--accent-primary)]">
+            <span className="pointer-events-none absolute -top-2 left-2 bg-neutral-900 px-1 text-[11px] font-medium text-cyan-500">
               AMOUNT
             </span>
           </div>
           <button
             disabled={loading}
-            className="relative overflow-hidden rounded-md px-5 py-3 text-base font-semibold text-white bg-gradient-to-br from-[var(--accent-primary,#2563EB)] via-[var(--accent-secondary,#EC4899)] to-[var(--accent-primary,#2563EB)] bg-[length:200%_200%] animate-[gradientMove_6s_linear_infinite] disabled:opacity-60 shadow-md"
+            className="rounded-md px-5 py-3 text-base font-semibold text-white bg-cyan-700 hover:bg-cyan-600 disabled:opacity-60 shadow-md transition"
           >
-            <span className="relative z-10">
-              {loading ? "Placing..." : "Place Bet"}
-            </span>
-            <span className="absolute inset-0 opacity-0 group-hover:opacity-20 bg-white transition" />
+            {loading ? "Placing..." : "Place Bet"}
           </button>
         </div>
       </div>
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-[10px] sm:text-xs font-medium text-[var(--c-text-tertiary)]">
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-[10px] sm:text-xs font-medium text-neutral-400 mt-2">
         <span className="inline-flex items-center gap-1 uppercase tracking-wide">
           Side:{" "}
-          <strong className="text-[var(--accent-secondary)] font-semibold">
+          <strong
+            className={side === "yes" ? "text-cyan-400" : "text-rose-400"}
+          >
             {side}
           </strong>
         </span>
         <span className="inline-flex items-center gap-1">
           Potential Return{" "}
-          <strong className="text-[var(--accent-primary)]">{potential}</strong>
+          <strong className="text-cyan-400">{potential}</strong>
         </span>
         {error && <span className="text-red-400">{error}</span>}
       </div>
-      <style jsx>{`
-        @keyframes gradientMove {
-          0% {
-            background-position: 0% 50%;
-          }
-          50% {
-            background-position: 100% 50%;
-          }
-          100% {
-            background-position: 0% 50%;
-          }
-        }
-      `}</style>
     </form>
   );
 }

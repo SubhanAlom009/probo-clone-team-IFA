@@ -36,48 +36,33 @@ export default function Home() {
   }, []);
 
   return (
-    <div className="relative min-h-screen">
-      <BaseBackground />
+    <div className="relative min-h-screen bg-neutral-950 text-white">
       <Hero user={user} />
       <FeaturedSection events={events} loading={loadingEvents} />
       <HowItWorks />
       <SiteFooter />
-      <style jsx global>{`
-        .glass-card {
-          background: rgba(23, 32, 48, 0.72);
-          border: 1px solid rgba(120, 160, 200, 0.08);
-          backdrop-filter: blur(8px);
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .no-motion {
-            animation: none !important;
-          }
-        }
-      `}</style>
     </div>
   );
 }
 
 function Hero({ user }) {
   return (
-    <section className="relative flex flex-col justify-center pt-24 md:pt-32 pb-24">
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute -top-32 left-1/2 -translate-x-1/2 w-[780px] h-[780px] rounded-full bg-[radial-gradient(circle_at_center,rgba(6,182,212,0.18),transparent_60%)]" />
-      </div>
-      <div className="relative mx-auto max-w-5xl px-4">
+    <section className="flex flex-col justify-center pt-24 md:pt-32 pb-20 bg-neutral-950 border-b border-neutral-900">
+      <div className="mx-auto max-w-4xl px-4 text-center">
         <h1
-          className={`${displayFont.className} text-5xl md:text-6xl font-extrabold tracking-tight leading-tight text-transparent bg-clip-text bg-gradient-to-r from-[#06b6d4] via-[#6366f1] to-[#84cc16]`}
+          className={`${displayFont.className} text-5xl md:text-6xl font-extrabold tracking-tight leading-tight text-white mb-4`}
         >
-          Predict the Future. <span className="inline-block">Win Big.</span>
+          Predict the Future.{" "}
+          <span className="inline-block text-cyan-400">Win Big.</span>
         </h1>
-        <p className="mt-6 max-w-2xl text-lg md:text-xl text-slate-300 leading-relaxed font-medium">
-          Stake virtual coins on real outcomes & learn from collective
+        <p className="mt-4 max-w-2xl mx-auto text-lg md:text-xl text-neutral-300 leading-relaxed font-medium">
+          Stake virtual coins on real outcomes and learn from collective
           intelligence in live markets.
         </p>
-        <div className="mt-8 flex flex-wrap gap-4 items-center">
+        <div className="mt-8 flex flex-wrap gap-4 justify-center items-center">
           <Link
             href="/events"
-            className="relative inline-flex items-center rounded-full px-8 py-3 text-sm font-semibold text-white bg-gradient-to-r from-[#06b6d4] to-[#6366f1] hover:from-[#0891b2] hover:to-[#4f46e5] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#06b6d4] focus:ring-offset-[#0b0f19] transition shadow-md"
+            className="inline-flex items-center rounded-full px-8 py-3 text-sm font-semibold text-white bg-[#0a3d62] hover:bg-[#0891b2] focus:outline-none focus:ring-2 focus:ring-cyan-500 transition shadow-md"
           >
             Get Started
             <svg
@@ -97,7 +82,7 @@ function Hero({ user }) {
           {!user && (
             <Link
               href="/auth/signup"
-              className="inline-flex items-center rounded-full px-7 py-3 text-sm font-semibold border border-slate-600/60 text-slate-200 hover:text-white hover:border-slate-400/70 transition bg-slate-800/40 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-600 focus:ring-offset-[#0b0f19]"
+              className="inline-flex items-center rounded-full px-7 py-3 text-sm font-semibold border border-neutral-700 text-white hover:bg-neutral-900 transition"
             >
               Join Now
             </Link>
@@ -110,7 +95,7 @@ function Hero({ user }) {
 
 function FeaturedSection({ events, loading }) {
   return (
-    <section className="relative z-10 px-4 pb-20 -mt-10">
+    <section className="relative z-10 px-4 pb-20 -mt-8">
       <div className="max-w-6xl mx-auto">
         <div className="flex items-end justify-between mb-8">
           <h2 className="text-2xl font-semibold tracking-tight text-white">
@@ -118,7 +103,7 @@ function FeaturedSection({ events, loading }) {
           </h2>
           <Link
             href="/events"
-            className="text-xs font-semibold text-[#2563eb] hover:underline"
+            className="text-xs font-semibold text-cyan-400 hover:underline"
           >
             View All →
           </Link>
@@ -126,11 +111,14 @@ function FeaturedSection({ events, loading }) {
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {loading &&
             Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="h-40 rounded-2xl skeleton" />
+              <div
+                key={i}
+                className="h-40 rounded-xl bg-neutral-800 border border-neutral-700 animate-pulse"
+              />
             ))}
           {!loading && events.map((ev) => <EventCard key={ev.id} ev={ev} />)}
           {!loading && events.length === 0 && (
-            <div className="col-span-full text-sm text-slate-400">
+            <div className="col-span-full text-sm text-neutral-500">
               No events yet. Seed some markets to get started.
             </div>
           )}
@@ -141,33 +129,40 @@ function FeaturedSection({ events, loading }) {
 }
 
 function EventCard({ ev }) {
-  const yes = ev.stakeYes || 0;
-  const no = ev.stakeNo || 0;
+  const yes = ev.yesStake || 0;
+  const no = ev.noStake || 0;
   const total = yes + no;
   const yesProb = total > 0 ? yes / total : 0.5;
   const noProb = 1 - yesProb;
+  // Calculate dynamic prices based on probabilities (match events page)
+  const yesPrice = (yesProb * 10).toFixed(0);
+  const noPrice = (noProb * 10).toFixed(0);
+
   return (
-    <Link
-      href={`/events/${ev.id}`}
-      className="group relative rounded-xl p-4 flex flex-col glass-card hover:shadow-lg transition-shadow min-h-[170px]"
-    >
-      <h3 className="text-sm font-semibold leading-snug text-slate-100 line-clamp-3 group-hover:text-white">
-        {ev.title}
-      </h3>
-      <div className="flex justify-end text-[11px] text-slate-400 font-medium mt-1">
-        <span>{total} coins</span>
-      </div>
-      <div className="mt-auto flex justify-between gap-2 pt-2">
-        <span className="flex-1">
-          <span className="block w-full rounded-full py-1.5 text-center font-semibold text-sm bg-cyan-900/60 text-cyan-300 border border-cyan-700">
-            Yes {(yesProb * 100).toFixed(1)}%
-          </span>
-        </span>
-        <span className="flex-1">
-          <span className="block w-full rounded-full py-1.5 text-center font-semibold text-sm bg-pink-900/60 text-pink-300 border border-pink-700">
-            No {(noProb * 100).toFixed(1)}%
-          </span>
-        </span>
+    <Link href={`/events/${ev.id}`}>
+      <div className="bg-[#1c1c1c] rounded-lg shadow-md p-5 flex flex-col justify-between cursor-pointer hover:shadow-lg transition-shadow">
+        {/* Main Section */}
+        <div className="flex flex-col mb-4">
+          <h2 className="font-bold text-lg mb-2 text-white">{ev.title}</h2>
+          <p
+            className="text-[#a0a0a0] text-sm truncate"
+            title={ev.description || "No description available."}
+          >
+            {ev.description && ev.description.length > 80
+              ? ev.description.slice(0, 80) + "..."
+              : ev.description || "No description available."}
+          </p>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex gap-4">
+          <button className="flex-1 bg-[#0a3d62] text-white font-bold py-2 rounded hover:brightness-110">
+            Yes ₹{yesPrice}
+          </button>
+          <button className="flex-1 bg-[#7b1113] text-white font-bold py-2 rounded hover:brightness-110">
+            No ₹{noPrice}
+          </button>
+        </div>
       </div>
     </Link>
   );
@@ -221,18 +216,15 @@ function HowItWorks() {
 
 function StepCard({ icon: Icon, title, desc }) {
   return (
-    <div className="relative group rounded-2xl p-6 glass-card border border-slate-600/30 hover:border-slate-400/70 transition">
-      <div className="absolute -inset-px rounded-2xl opacity-0 group-hover:opacity-100 bg-[linear-gradient(120deg,rgba(37,99,235,0.15),rgba(109,40,217,0.15),rgba(236,72,153,0.15))] blur-xl transition" />
+    <div className="relative group rounded-2xl p-6 bg-neutral-900 border border-neutral-800 hover:border-cyan-800 transition">
       <div className="relative flex flex-col gap-4">
-        <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-[#2563eb] via-[#6d28d9] to-[#ec4899] p-[2px] shadow-lg shadow-black/40">
-          <div className="h-full w-full rounded-[10px] bg-slate-900/80 grid place-items-center">
-            <Icon className="w-6 h-6 text-white" />
-          </div>
+        <div className="h-12 w-12 rounded-xl bg-neutral-800 border border-cyan-900 grid place-items-center shadow-lg">
+          <Icon className="w-6 h-6 text-cyan-400" />
         </div>
         <h3 className="text-sm font-semibold text-white tracking-wide">
           {title}
         </h3>
-        <p className="text-xs leading-relaxed text-slate-400">{desc}</p>
+        <p className="text-xs leading-relaxed text-neutral-400">{desc}</p>
       </div>
     </div>
   );

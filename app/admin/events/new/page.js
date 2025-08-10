@@ -52,44 +52,54 @@ export default function NewEventPage() {
 
   if (loading) return <div>Loading...</div>;
   if (!user) return <div>Login required.</div>;
-  if (profile?.role !== "admin") return <div>Admin only.</div>;
 
   return (
-    <div className="max-w-xl">
-      <h1 className="text-2xl font-bold mb-6">Create Event</h1>
-      <form onSubmit={submit} className="space-y-5">
+    <div className="max-w-xl mx-auto mt-10 bg-neutral-900 border border-neutral-800 rounded-2xl shadow-lg p-8">
+      <h1 className="text-3xl font-extrabold mb-8 text-white tracking-tight">
+        Create New Event
+      </h1>
+      <form onSubmit={submit} className="space-y-6">
         <div>
-          <label className="block text-sm font-medium mb-1">Title</label>
+          <label className="block text-xs font-semibold mb-2 text-neutral-400 uppercase tracking-wider">
+            Title
+          </label>
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             required
-            className="w-full bg-neutral-900 border border-neutral-700 rounded px-3 py-2 text-sm focus:outline-none focus:border-indigo-500"
+            className="w-full bg-neutral-950 border border-cyan-800 rounded-lg px-4 py-3 text-base text-white focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-800/30 transition"
+            placeholder="e.g. Will Bitcoin close above $70k this week?"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium mb-1">Description</label>
+          <label className="block text-xs font-semibold mb-2 text-neutral-400 uppercase tracking-wider">
+            Description
+          </label>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={5}
-            className="w-full bg-neutral-900 border border-neutral-700 rounded px-3 py-2 text-sm focus:outline-none focus:border-indigo-500"
+            className="w-full bg-neutral-950 border border-cyan-800 rounded-lg px-4 py-3 text-base text-white focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-800/30 transition"
+            placeholder="Describe the event, context, and resolution criteria."
           />
         </div>
         <div>
-          <label className="block text-sm font-medium mb-1">
-            Closes At (optional)
+          <label className="block text-xs font-semibold mb-2 text-neutral-400 uppercase tracking-wider">
+            Closes At{" "}
+            <span className="text-neutral-500 font-normal">(optional)</span>
           </label>
           <input
             type="datetime-local"
             value={closesAt}
             onChange={(e) => setClosesAt(e.target.value)}
-            className="w-full bg-neutral-900 border border-neutral-700 rounded px-3 py-2 text-sm"
+            className="w-full bg-neutral-950 border border-cyan-800 rounded-lg px-4 py-3 text-base text-white focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-800/30 transition"
           />
         </div>
-        {error && <div className="text-red-400 text-sm">{error}</div>}
-        <button className="bg-indigo-600 hover:bg-indigo-500 px-5 py-2 rounded-md text-sm font-semibold">
-          Create
+        {error && (
+          <div className="text-red-400 text-sm font-medium">{error}</div>
+        )}
+        <button className="w-full bg-cyan-700 hover:bg-cyan-600 text-white font-bold py-3 rounded-lg text-base transition shadow-md">
+          Create Event
         </button>
       </form>
     </div>

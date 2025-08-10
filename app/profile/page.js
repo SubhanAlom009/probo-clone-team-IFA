@@ -1,26 +1,39 @@
 "use client";
 import { useEffect, useState } from "react";
+import { getDocs, doc, getDoc, collection } from "firebase/firestore";
 import { apiFetch } from "@/lib/clientApi";
+import Link from "next/link";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
-import {
-  collection,
-  query,
-  where,
-  orderBy,
-  onSnapshot,
-  doc,
-} from "firebase/firestore";
+import { query, where, orderBy, onSnapshot } from "firebase/firestore";
 
 export default function ProfilePage() {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [bets, setBets] = useState([]);
+  const [eventTitles, setEventTitles] = useState({});
   const [metrics, setMetrics] = useState(null);
-  const [upgradeStatus, setUpgradeStatus] = useState(null);
-  const [submittingUpgrade, setSubmittingUpgrade] = useState(false);
   const [activeTab, setActiveTab] = useState("bets");
   const [loading, setLoading] = useState(true);
+
+  // Recharge handler
+  async function handleRecharge() {
+    const amount = prompt("Enter amount to recharge:");
+    const n = Number(amount);
+    if (!n || n <= 0) return alert("Please enter a valid amount.");
+    try {
+      await apiFetch("/api/users/recharge", {
+        method: "POST",
+        body: JSON.stringify({ amount: n }),
+      });
+      // Refresh profile after recharge
+      const p = await apiFetch("/api/users/me");
+      setProfile(p);
+      alert("Balance recharged!");
+    } catch (e) {
+      alert(e.message || "Recharge failed");
+    }
+  }
 
   useEffect(() => {
     const unsubAuth = onAuthStateChanged(auth, async (u) => {
@@ -52,6 +65,20 @@ export default function ProfilePage() {
         const unsubBets = onSnapshot(qB, async (snap) => {
           const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
           setBets(list);
+          // Fetch event titles for bets
+          const eventIds = Array.from(
+            new Set(list.map((b) => b.eventId).filter(Boolean))
+          );
+          const titles = {};
+          await Promise.all(
+            eventIds.map(async (eid) => {
+              try {
+                const evSnap = await getDoc(doc(db, "events", eid));
+                if (evSnap.exists()) titles[eid] = evSnap.data().title;
+              } catch {}
+            })
+          );
+          setEventTitles(titles);
           // Refresh metrics after bet change (simple approach)
           try {
             const m = await apiFetch("/api/users/me/metrics");
@@ -70,21 +97,6 @@ export default function ProfilePage() {
     return () => unsubAuth();
   }, []);
 
-  async function handleUpgradeRequest() {
-    setSubmittingUpgrade(true);
-    try {
-      await apiFetch("/api/users/upgrade-request", { method: "POST" });
-      setUpgradeStatus("requested");
-      // refresh profile
-      const p = await apiFetch("/api/users/me");
-      setProfile(p);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setSubmittingUpgrade(false);
-    }
-  }
-
   if (!user) return <div>Please login.</div>;
   if (loading)
     return (
@@ -92,7 +104,6 @@ export default function ProfilePage() {
     );
 
   const isAdmin = profile?.role === "admin";
-  const requested = profile?.upgradeRequested;
   return (
     <div className="space-y-10">
       <header className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
@@ -103,30 +114,28 @@ export default function ProfilePage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <div className="bg-neutral-900 border border-neutral-700 px-5 py-3 rounded-xl text-base font-semibold">
+          <div className="bg-neutral-900 border border-neutral-700 px-5 py-3 rounded-xl text-base font-semibold flex items-center gap-2">
             Balance:{" "}
             <span className="text-cyan-400 font-semibold">
               {profile?.balance}
             </span>
-          </div>
-          {!isAdmin && (
             <button
-              disabled={requested || submittingUpgrade}
-              onClick={handleUpgradeRequest}
-              className="ui-btn disabled:opacity-50"
+              onClick={handleRecharge}
+              className="ml-2 px-2 py-1 text-xs rounded bg-cyan-800 text-white hover:bg-cyan-700 transition"
+              title="Recharge Balance"
             >
-              {requested
-                ? "Requested"
-                : submittingUpgrade
-                ? "Requesting..."
-                : "Request Admin"}
+              Recharge
             </button>
-          )}
-          {isAdmin && (
-            <span className="px-3 py-2 rounded bg-indigo-600/20 border border-indigo-500/30 text-indigo-300 text-xs font-semibold uppercase tracking-wide">
-              Admin
-            </span>
-          )}
+          </div>
+          <span className="px-3 py-2 rounded bg-indigo-600/20 border border-indigo-500/30 text-indigo-300 text-xs font-semibold uppercase tracking-wide">
+            Admin
+          </span>
+          <Link
+            href="/admin/events/new"
+            className="ui-btn px-4 py-2 text-xs font-semibold"
+          >
+            Create Event
+          </Link>
         </div>
       </header>
 
@@ -152,52 +161,67 @@ export default function ProfilePage() {
 
       <div>
         <div className="flex border-b border-neutral-800 mb-6 text-sm">
-          {["bets", "ledger"].map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2 -mb-px border-b-2 transition-colors ${
-                activeTab === tab
-                  ? "border-cyan-500 text-cyan-300"
-                  : "border-transparent hover:text-neutral-200 text-neutral-500"
-              }`}
-            >
-              {tab === "bets" ? "Bets" : "Ledger"}
-            </button>
-          ))}
+          <button
+            onClick={() => setActiveTab("bets")}
+            className={`px-4 py-2 -mb-px border-b-2 transition-colors ${
+              activeTab === "bets"
+                ? "border-cyan-500 text-cyan-300"
+                : "border-transparent hover:text-neutral-200 text-neutral-500"
+            }`}
+          >
+            Bets
+          </button>
         </div>
-        {activeTab === "bets" && (
-          <div className="space-y-3 text-sm">
-            {bets.map((b) => (
-              <div
-                key={b.id}
-                className="grid grid-cols-5 items-center gap-3 bg-neutral-900 border border-neutral-800 rounded-lg p-3"
+        <div className="space-y-3 text-sm">
+          {bets.map((b) => (
+            <div
+              key={b.id}
+              className="grid grid-cols-6 items-center gap-3 bg-neutral-900 border border-neutral-800 rounded-lg p-3"
+            >
+              <span
+                className="col-span-2 font-semibold text-white truncate"
+                title={eventTitles[b.eventId] || b.eventId}
               >
-                <span className="col-span-1 capitalize font-medium {b.outcome && b.outcome===b.side ? 'text-lime-400':' '}">
-                  {b.side}
-                </span>
-                <span className="col-span-1">{b.stake}</span>
-                <span className="col-span-1 text-neutral-500">
-                  {b.oddsSnapshot
-                    ? (b.oddsSnapshot * 100).toFixed(1) + "%"
-                    : ""}
-                </span>
-                <span className="col-span-1 text-xs {b.settled ? (b.outcome===b.side ? 'text-lime-400':'text-red-400'):'text-neutral-500'}">
-                  {b.settled ? (b.outcome === b.side ? "Won" : "Lost") : "Open"}
-                </span>
-                <span className="col-span-1 text-right text-cyan-300">
-                  {b.payout ? b.payout.toFixed(2) : ""}
-                </span>
-              </div>
-            ))}
-            {!bets.length && (
-              <div className="text-neutral-500">No bets yet.</div>
-            )}
-          </div>
-        )}
-        {activeTab === "ledger" && (
-          <div className="text-sm text-neutral-500">Ledger coming soon.</div>
-        )}
+                {eventTitles[b.eventId] ? (
+                  <Link
+                    href={`/events/${b.eventId}`}
+                    className="hover:underline text-cyan-400"
+                  >
+                    {eventTitles[b.eventId]}
+                  </Link>
+                ) : (
+                  <span className="text-neutral-500">(Event)</span>
+                )}
+              </span>
+              <span
+                className={`col-span-1 capitalize font-medium ${
+                  b.outcome && b.outcome === b.side ? "text-lime-400" : ""
+                }`}
+              >
+                {b.side}
+              </span>
+              <span className="col-span-1">{b.stake}</span>
+              <span className="col-span-1 text-neutral-500">
+                {b.oddsSnapshot ? (b.oddsSnapshot * 100).toFixed(1) + "%" : ""}
+              </span>
+              <span
+                className={`col-span-1 text-xs ${
+                  b.settled
+                    ? b.outcome === b.side
+                      ? "text-lime-400"
+                      : "text-red-400"
+                    : "text-neutral-500"
+                }`}
+              >
+                {b.settled ? (b.outcome === b.side ? "Won" : "Lost") : "Open"}
+              </span>
+              <span className="col-span-1 text-right text-cyan-300">
+                {b.payout ? b.payout.toFixed(2) : ""}
+              </span>
+            </div>
+          ))}
+          {!bets.length && <div className="text-neutral-500">No bets yet.</div>}
+        </div>
       </div>
     </div>
   );

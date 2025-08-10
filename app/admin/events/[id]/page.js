@@ -11,6 +11,7 @@ export default function AdminEventManage() {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [outcome, setOutcome] = useState("yes");
+  const [resolved, setResolved] = useState(false);
   const [error, setError] = useState(null);
   const router = useRouter();
 
@@ -42,53 +43,80 @@ export default function AdminEventManage() {
         method: "POST",
         body: JSON.stringify({ outcome }),
       });
-      router.refresh();
+      setResolved(true);
+      setTimeout(() => {
+        setResolved(false);
+        router.refresh();
+      }, 1200);
     } catch (e) {
       setError(e.message);
     }
   }
 
   return (
-    <div className="space-y-6 max-w-xl">
-      <h1 className="text-2xl font-bold">Admin Manage</h1>
-      <div className="bg-neutral-900 border border-neutral-800 rounded p-4 space-y-2 text-sm">
-        <div>
-          <span className="font-medium">Title:</span> {event.title}
-        </div>
-        <div>Status: {event.status}</div>
-        <div>
-          Yes Stake: {event.yesStake} | No Stake: {event.noStake}
+    <div className="space-y-8 max-w-xl mx-auto mt-10">
+      <h1 className="text-3xl font-extrabold text-center mb-2">
+        Resolve Event
+      </h1>
+      <div className="bg-neutral-900 border-2 border-neutral-800 rounded-2xl p-6 shadow-lg space-y-4">
+        <div className="flex flex-col gap-2">
+          <div className="text-lg font-bold text-white">{event.title}</div>
+          <div className="flex gap-4 text-sm text-neutral-400">
+            <span>
+              Status:{" "}
+              <span className="font-semibold text-lime-400">
+                {event.status}
+              </span>
+            </span>
+            <span>
+              Yes Stake: <span className="text-cyan-400">{event.yesStake}</span>
+            </span>
+            <span>
+              No Stake: <span className="text-pink-400">{event.noStake}</span>
+            </span>
+          </div>
         </div>
         {event.resolvedOutcome && (
-          <div>Resolved Outcome: {event.resolvedOutcome}</div>
+          <div className="mt-4 p-4 rounded-xl bg-gradient-to-r from-emerald-700 to-cyan-700 text-white text-center font-bold text-lg border-2 border-emerald-500 animate-pulse">
+            Resolved Outcome: {event.resolvedOutcome.toUpperCase()}
+          </div>
+        )}
+        {!event.resolvedOutcome && (
+          <div className="space-y-4">
+            <div className="flex gap-4 justify-center">
+              {["yes", "no"].map((o) => (
+                <button
+                  key={o}
+                  onClick={() => setOutcome(o)}
+                  className={`px-6 py-2 rounded-lg text-base font-bold border-2 transition-all duration-200 focus:outline-none ${
+                    outcome === o
+                      ? o === "yes"
+                        ? "bg-cyan-700 border-cyan-400 text-white shadow-lg scale-105"
+                        : "bg-pink-700 border-pink-400 text-white shadow-lg scale-105"
+                      : "bg-neutral-800 border-neutral-700 text-neutral-300 hover:bg-neutral-700"
+                  }`}
+                >
+                  {o.toUpperCase()}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={resolve}
+              disabled={resolved}
+              className={`w-full mt-4 py-3 rounded-xl text-lg font-bold transition-all duration-200 shadow-md focus:outline-none ${
+                resolved
+                  ? "bg-emerald-700 text-white animate-pulse cursor-not-allowed"
+                  : "bg-emerald-600 hover:bg-emerald-500 text-white"
+              }`}
+            >
+              {resolved ? "Resolved!" : "Resolve"}
+            </button>
+            {error && (
+              <div className="text-red-400 text-center mt-2">{error}</div>
+            )}
+          </div>
         )}
       </div>
-      {!event.resolvedOutcome && (
-        <div className="space-y-3">
-          <div className="flex gap-2">
-            {["yes", "no"].map((o) => (
-              <button
-                key={o}
-                onClick={() => setOutcome(o)}
-                className={`px-4 py-1.5 rounded-md text-sm font-medium ${
-                  outcome === o
-                    ? "bg-indigo-600"
-                    : "bg-neutral-800 hover:bg-neutral-700"
-                }`}
-              >
-                {o.toUpperCase()}
-              </button>
-            ))}
-          </div>
-          <button
-            onClick={resolve}
-            className="bg-emerald-600 hover:bg-emerald-500 px-5 py-2 rounded-md text-sm font-semibold"
-          >
-            Resolve
-          </button>
-        </div>
-      )}
-      {error && <div className="text-red-400 text-sm">{error}</div>}
     </div>
   );
 }

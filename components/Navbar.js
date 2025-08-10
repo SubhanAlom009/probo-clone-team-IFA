@@ -64,28 +64,22 @@ export default function Navbar() {
   }
 
   const accentUnderline =
-    "after:absolute after:left-0 after:bottom-0 after:h-0.5 after:w-0 after:bg-gradient-to-r after:from-[#3b82f6] after:to-[#ef4444] hover:after:w-full after:transition-all after:duration-300";
+    "after:absolute after:left-0 after:bottom-0 after:h-0.5 after:w-0 after:bg-cyan-500 hover:after:w-full after:transition-all after:duration-300";
 
-  const navLinks =
-    profile?.role === "admin"
-      ? [...NAV_LINKS_BASE, { href: "/admin/users", label: "Admin" }]
-      : NAV_LINKS_BASE;
+  const navLinks = NAV_LINKS_BASE;
 
   return (
     <header
-      className={`sticky top-0 z-50 shadow-md shadow-black/30 bg-[#0f172a]/95 backdrop-blur supports-[backdrop-filter]:bg-[#0f172a]/80 ${font.className}`}
+      className={`sticky top-0 z-50 shadow-md shadow-black/30 bg-[#10151f] supports-[backdrop-filter]:bg-[#10151f] ${font.className}`}
     >
       <nav className="max-w-7xl mx-auto px-4 lg:px-6">
         <div className="flex h-16 items-center gap-6">
           {/* Brand */}
           <Link
             href="/"
-            className="relative font-semibold text-lg tracking-tight group"
+            className="relative font-semibold text-lg tracking-tight text-white hover:text-cyan-400 transition"
           >
-            <span className="bg-gradient-to-r from-[#3b82f6] via-[#6366f1] to-[#ef4444] bg-clip-text text-transparent">
-              PredictX
-            </span>
-            <span className="absolute -inset-x-2 -inset-y-1 scale-95 opacity-0 rounded-lg bg-gradient-to-r from-[#3b82f6]/10 via-transparent to-[#ef4444]/10 blur-lg transition group-hover:opacity-100" />
+            PredictX
           </Link>
           {/* Desktop Nav */}
           <ul className="hidden md:flex flex-1 items-center justify-center gap-10 text-sm font-medium">
@@ -93,14 +87,24 @@ export default function Navbar() {
               <li key={l.href}>
                 <Link
                   href={l.href}
-                  className={`relative pb-1 text-slate-300 hover:text-white transition ${accentUnderline} ${
-                    active(l.href) ? "after:w-full text-white" : ""
+                  className={`relative pb-1 text-neutral-300 hover:text-cyan-400 transition ${accentUnderline} ${
+                    active(l.href) ? "after:w-full text-cyan-400" : ""
                   }`}
                 >
                   {l.label}
                 </Link>
               </li>
             ))}
+            {user && (
+              <li>
+                <Link
+                  href="/admin/events/new"
+                  className="inline-flex items-center rounded-full px-4 py-2 text-xs font-semibold text-white bg-cyan-700 hover:bg-cyan-800 transition shadow"
+                >
+                  Add Event
+                </Link>
+              </li>
+            )}
           </ul>
           {/* Right Section */}
           <div className="ml-auto hidden md:flex items-center gap-4">
@@ -108,13 +112,13 @@ export default function Navbar() {
               <>
                 <Link
                   href="/auth/signin"
-                  className="relative inline-flex items-center justify-center rounded-full px-4 py-2 text-xs font-semibold text-white bg-gradient-to-r from-[#3b82f6] to-[#6366f1] hover:from-[#2563eb] hover:to-[#4f46e5] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#3b82f6] focus:ring-offset-[#0f172a] transition shadow"
+                  className="inline-flex items-center justify-center rounded-full px-4 py-2 text-xs font-semibold text-white bg-[#0a3d62] hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-[#10151f] transition shadow"
                 >
                   Sign In
                 </Link>
                 <Link
                   href="/auth/signup"
-                  className="relative inline-flex items-center justify-center rounded-full px-4 py-2 text-xs font-semibold text-white bg-gradient-to-r from-[#ef4444] to-[#f97316] hover:from-[#dc2626] hover:to-[#ea580c] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#ef4444] focus:ring-offset-[#0f172a] transition shadow"
+                  className="inline-flex items-center justify-center rounded-full px-4 py-2 text-xs font-semibold text-white bg-[#7b1113] hover:bg-rose-800 focus:outline-none focus:ring-2 focus:ring-rose-500 focus:ring-offset-2 focus:ring-offset-[#10151f] transition shadow"
                 >
                   Sign Up
                 </Link>
@@ -126,15 +130,15 @@ export default function Navbar() {
                   onClick={() => setDropdownOpen((o) => !o)}
                   aria-haspopup="menu"
                   aria-expanded={dropdownOpen}
-                  className="group flex items-center gap-2 rounded-full pl-1 pr-3 h-9 bg-slate-800/70 hover:bg-slate-700/70 border border-slate-700/60 hover:border-slate-600 transition"
+                  className="group flex items-center gap-2 rounded-full pl-1 pr-3 h-9 bg-neutral-900 hover:bg-neutral-800 border border-neutral-700 hover:border-cyan-800 transition"
                 >
                   <Avatar user={user} />
                   {profile?.role === "admin" && (
-                    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-indigo-600/30 text-indigo-300 border border-indigo-500/30">
+                    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-cyan-900/30 text-cyan-300 border border-cyan-800/30">
                       ADM
                     </span>
                   )}
-                  <span className="text-xs font-medium text-slate-300 group-hover:text-white">
+                  <span className="text-xs font-medium text-neutral-300 group-hover:text-cyan-400">
                     {user.displayName?.split(" ")[0] || "User"}
                   </span>
                   <svg
@@ -154,27 +158,20 @@ export default function Navbar() {
                   </svg>
                 </button>
                 {dropdownOpen && (
-                  <div className="absolute right-0 mt-2 w-44 rounded-lg border border-slate-700/70 bg-[#0f172a] shadow-lg shadow-black/40 overflow-hidden animate-[fadeSlide_.3s_cubic-bezier(.4,0,.2,1)]">
-                    <div className="px-4 py-2 text-[10px] uppercase tracking-wide text-slate-500">
+                  <div className="absolute right-0 mt-2 w-44 rounded-lg border border-neutral-700 bg-[#10151f] shadow-lg shadow-black/40 overflow-hidden animate-[fadeSlide_.3s_cubic-bezier(.4,0,.2,1)]">
+                    <div className="px-4 py-2 text-[10px] uppercase tracking-wide text-neutral-500">
                       Account
                     </div>
-                    {profile?.role === "admin" && (
-                      <Link
-                        href="/admin/users"
-                        className="block px-4 py-2 text-sm text-slate-300 hover:bg-slate-800/80 hover:text-white transition"
-                      >
-                        Admin
-                      </Link>
-                    )}
+                    {/* No admin panel link */}
                     <Link
                       href="/profile"
-                      className="block px-4 py-2 text-sm text-slate-300 hover:bg-slate-800/80 hover:text-white transition"
+                      className="block px-4 py-2 text-sm text-neutral-300 hover:bg-neutral-800 hover:text-cyan-400 transition"
                     >
                       Profile
                     </Link>
                     <button
                       onClick={() => signOut(auth)}
-                      className="w-full text-left px-4 py-2 text-sm text-rose-400 hover:bg-slate-800/80 hover:text-rose-300 transition"
+                      className="w-full text-left px-4 py-2 text-sm text-rose-400 hover:bg-neutral-800 hover:text-rose-300 transition"
                     >
                       Logout
                     </button>
@@ -197,7 +194,7 @@ export default function Navbar() {
             ) : (
               <Link
                 href="/auth/signin"
-                className="text-xs font-medium px-3 py-1.5 rounded-full bg-gradient-to-r from-[#3b82f6] to-[#6366f1] text-white"
+                className="text-xs font-medium px-3 py-1.5 rounded-full bg-[#0a3d62] text-white hover:bg-cyan-700"
               >
                 Sign In
               </Link>
@@ -206,7 +203,7 @@ export default function Navbar() {
               onClick={() => setMenuOpen((o) => !o)}
               aria-label="Toggle menu"
               aria-expanded={menuOpen}
-              className="relative h-9 w-9 flex flex-col items-center justify-center gap-1.5 rounded-md border border-slate-700/70 bg-slate-800/60 hover:bg-slate-700/60 transition"
+              className="relative h-9 w-9 flex flex-col items-center justify-center gap-1.5 rounded-md border border-neutral-700 bg-neutral-900 hover:bg-neutral-800 transition"
             >
               <span
                 className={`h-0.5 w-5 rounded-full bg-slate-300 transition ${
@@ -233,16 +230,16 @@ export default function Navbar() {
           menuOpen ? "max-h-[420px]" : "max-h-0"
         }`}
       >
-        <div className="px-4 pb-6 pt-2 border-t border-slate-800/70 bg-[#0f172a]/95 backdrop-blur flex flex-col gap-4">
+        <div className="px-4 pb-6 pt-2 border-t border-neutral-800 bg-[#10151f] flex flex-col gap-4">
           <ul className="flex flex-col gap-1 text-sm font-medium">
             {navLinks.map((l) => (
               <li key={l.href}>
                 <Link
                   href={l.href}
-                  className={`block px-3 py-2 rounded-md hover:bg-slate-800/60 transition ${
+                  className={`block px-3 py-2 rounded-md hover:bg-neutral-800 transition ${
                     active(l.href)
-                      ? "text-white bg-slate-800/70"
-                      : "text-slate-300"
+                      ? "text-cyan-400 bg-neutral-900"
+                      : "text-neutral-300"
                   }`}
                 >
                   {l.label}
@@ -254,37 +251,37 @@ export default function Navbar() {
             <div className="flex gap-2 pt-2">
               <Link
                 href="/auth/signin"
-                className="flex-1 text-center rounded-full px-4 py-2 text-xs font-semibold text-white bg-gradient-to-r from-[#3b82f6] to-[#6366f1]"
+                className="flex-1 text-center rounded-full px-4 py-2 text-xs font-semibold text-white bg-[#0a3d62] hover:bg-cyan-700"
               >
                 Sign In
               </Link>
               <Link
                 href="/auth/signup"
-                className="flex-1 text-center rounded-full px-4 py-2 text-xs font-semibold text-white bg-gradient-to-r from-[#ef4444] to-[#f97316]"
+                className="flex-1 text-center rounded-full px-4 py-2 text-xs font-semibold text-white bg-[#7b1113] hover:bg-rose-800"
               >
                 Sign Up
               </Link>
             </div>
           )}
           {user && dropdownOpen && (
-            <div className="flex flex-col gap-1 pt-2 border-t border-slate-800/70 mt-2">
+            <div className="flex flex-col gap-1 pt-2 border-t border-neutral-800 mt-2">
               {profile?.role === "admin" && (
                 <Link
                   href="/admin/users"
-                  className="px-3 py-2 rounded-md text-sm text-slate-300 hover:bg-slate-800/60 hover:text-white transition"
+                  className="px-3 py-2 rounded-md text-sm text-neutral-300 hover:bg-neutral-800 hover:text-cyan-400 transition"
                 >
                   Admin
                 </Link>
               )}
               <Link
                 href="/profile"
-                className="px-3 py-2 rounded-md text-sm text-slate-300 hover:bg-slate-800/60 hover:text-white transition"
+                className="px-3 py-2 rounded-md text-sm text-neutral-300 hover:bg-neutral-800 hover:text-cyan-400 transition"
               >
                 Profile
               </Link>
               <button
                 onClick={() => signOut(auth)}
-                className="text-left px-3 py-2 rounded-md text-sm text-rose-400 hover:text-rose-300 hover:bg-slate-800/60 transition"
+                className="text-left px-3 py-2 rounded-md text-sm text-rose-400 hover:text-rose-300 hover:bg-neutral-800 transition"
               >
                 Logout
               </button>
@@ -322,7 +319,7 @@ function Avatar({ user }) {
     );
   const letter = (user?.displayName?.[0] || "U").toUpperCase();
   return (
-    <div className="h-7 w-7 rounded-full grid place-items-center text-[11px] font-semibold bg-gradient-to-br from-[#3b82f6] to-[#ef4444] text-white">
+    <div className="h-7 w-7 rounded-full grid place-items-center text-[11px] font-semibold bg-[#0a3d62] text-white border border-cyan-800">
       {letter}
     </div>
   );

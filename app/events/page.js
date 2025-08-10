@@ -11,40 +11,31 @@ function EventCard({ ev }) {
   const total = yes + no;
   const yesProb = total > 0 ? yes / total : 0.5;
   const noProb = 1 - yesProb;
+
+  // Calculate dynamic prices based on probabilities
+  const yesPrice = (yesProb * 10).toFixed(0); // Example: ₹7 for 70% chance
+  const noPrice = (noProb * 10).toFixed(0); // Example: ₹3 for 30% chance
+
   return (
-    <Link
-      href={`/events/${ev.id}`}
-  className="ui-card hoverable group relative overflow-hidden flex flex-col min-h-[150px]"
-    >
-      <div className="absolute inset-0 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-br from-cyan-500/5 via-transparent to-indigo-600/10" />
-      <div className="flex items-start justify-between mb-3 gap-3 relative">
-        <h3 className="font-medium text-sm line-clamp-2 flex-1 group-hover:text-white transition-colors tracking-tight">
-          {ev.title}
-        </h3>
-        <span
-          className={`px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide border ${
-            ev.status === "open"
-              ? "bg-cyan-500/10 text-cyan-300 border-cyan-600/40"
-              : "bg-neutral-700/30 text-neutral-300 border-neutral-600/40"
-          }`}
-        >
-          {ev.status}
-        </span>
-      </div>
-      <div className="flex justify-end text-[11px] text-[var(--c-text-faint)] font-medium mt-2">
-        <span className="text-neutral-400">{total} coins</span>
-      </div>
-      <div className="mt-auto flex justify-between gap-2 pt-2">
-        <span className="flex-1">
-          <span className="block w-full rounded-full py-1.5 text-center font-semibold text-sm bg-cyan-900/60 text-cyan-300 border border-cyan-700">
-            Yes {(yesProb * 100).toFixed(1)}%
-          </span>
-        </span>
-        <span className="flex-1">
-          <span className="block w-full rounded-full py-1.5 text-center font-semibold text-sm bg-pink-900/60 text-pink-300 border border-pink-700">
-            No {(noProb * 100).toFixed(1)}%
-          </span>
-        </span>
+    <Link href={`/events/${ev.id}`}>
+      <div className="bg-neutral-900 rounded-lg shadow-md p-5 flex flex-col justify-between cursor-pointer hover:shadow-lg transition-shadow">
+        {/* Main Section */}
+        <div className="flex flex-col mb-4">
+          <h2 className="font-bold text-lg mb-2 text-white">{ev.title}</h2>
+          <p className="text-[#a0a0a0] text-sm">
+            {ev.description || "No description available."}
+          </p>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex gap-4">
+          <button className="flex-1 bg-[#0a3d62] text-white font-bold py-2 rounded hover:brightness-110">
+            Yes ₹{yesPrice}
+          </button>
+          <button className="flex-1 bg-[#7b1113] text-white font-bold py-2 rounded hover:brightness-110">
+            No ₹{noPrice}
+          </button>
+        </div>
       </div>
     </Link>
   );
@@ -96,10 +87,10 @@ export default function EventsPage() {
   const totalVol = events?.reduce((s, e) => s + (e.totalStake || 0), 0) || 0;
 
   return (
-    <div className="space-y-6">
+    <div className="bg-[#121212] text-white min-h-screen p-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Markets</h1>
+          <h1 className="text-3xl font-bold tracking-tight">All events</h1>
           <p className="text-xs text-neutral-500 mt-1">
             {openCount} open • {totalVol} total coins staked
           </p>
@@ -134,17 +125,27 @@ export default function EventsPage() {
         </div>
       </div>
       {!filtered && (
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
           {Array.from({ length: 6 }).map((_, i) => (
             <div
               key={i}
-              className="animate-pulse rounded-xl border border-neutral-800 p-4 bg-neutral-900 h-32"
-            />
+              className="animate-pulse bg-neutral-900 rounded-lg shadow-md p-5 flex flex-col justify-between min-h-[170px] border border-neutral-800"
+            >
+              <div className="flex flex-col mb-4 gap-2">
+                <div className="h-6 w-2/3 bg-neutral-800 rounded" />
+                <div className="h-4 w-full bg-neutral-800 rounded" />
+                <div className="h-4 w-5/6 bg-neutral-800 rounded" />
+              </div>
+              <div className="flex gap-4 mt-auto">
+                <div className="flex-1 h-9 bg-neutral-800 rounded-full" />
+                <div className="flex-1 h-9 bg-neutral-800 rounded-full" />
+              </div>
+            </div>
           ))}
         </div>
       )}
       {filtered && (
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
           {filtered.map((ev) => (
             <EventCard key={ev.id} ev={ev} />
           ))}

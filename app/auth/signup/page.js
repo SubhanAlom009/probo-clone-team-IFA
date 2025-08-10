@@ -1,6 +1,6 @@
 "use client";
-import { auth } from "@/lib/firebase";
-import { createUserWithEmailAndPassword } from "firebase/auth";
+import { auth, googleProvider } from "@/lib/firebase";
+import { createUserWithEmailAndPassword, signInWithPopup } from "firebase/auth";
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ToastProvider";
@@ -22,6 +22,20 @@ export default function SignupPage() {
     try {
       await createUserWithEmailAndPassword(auth, email, password);
       pushToast("Account created!", "success");
+      router.push("/profile");
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleGoogleSignup() {
+    setError("");
+    setLoading(true);
+    try {
+      await signInWithPopup(auth, googleProvider);
+      pushToast("Signed up with Google!", "success");
       router.push("/profile");
     } catch (e) {
       setError(e.message);
@@ -87,6 +101,21 @@ export default function SignupPage() {
               {loading ? "Creating..." : "Create Account"}
             </button>
           </form>
+          <div className="mt-6 mb-4 flex items-center gap-3">
+            <div className="flex-1 h-px bg-[var(--c-border)]" />
+            <span className="text-[10px] uppercase tracking-wider text-[var(--c-text-faint)]">
+              or
+            </span>
+            <div className="flex-1 h-px bg-[var(--c-border)]" />
+          </div>
+          <button
+            type="button"
+            onClick={handleGoogleSignup}
+            disabled={loading}
+            className="ui-btn outline w-full justify-center text-[var(--c-accent-blue)]"
+          >
+            Google Sign Up
+          </button>
           <p className="mt-6 text-xs text-[var(--c-text-secondary)]">
             Already have an account?{" "}
             <Link

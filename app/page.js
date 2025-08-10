@@ -24,13 +24,14 @@ export default function Home() {
       />
       <EventSlider />
 
-      <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 mt-6 grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-6">
+      <div className="mw-full mx-auto px-4 md:px-6 lg:px-8 mt-6 grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-6">
         <main>
-          <h2 className="text-2xl font-bold mb-4">{selectedCategory}</h2>
+          <h2 className="text-2xl text-gray-800 font-bold mb-4">{selectedCategory}</h2>
           <EventGrid events={filteredEvents} />
         </main>
         <Sidebar />
       </div>
+      
 
       <EventInfo />
       <Footer />

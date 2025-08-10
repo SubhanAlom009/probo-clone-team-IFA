@@ -1,8 +1,45 @@
-// ProboEventPage.jsx
-import React from "react";
+"use client"
+
+import { useRouter } from "next/navigation";
+import React, { useState } from "react";
 import { NavLink } from "react-router-dom";
 
 export default function ProboEventPage() {
+    const [price, setPrice] = useState(7.0);
+  const [quantity, setQuantity] = useState(1);
+  const [selectedSide, setSelectedSide] = useState("yes");
+  const [balance, setBalance] = useState(20); // Simulating no balance for now
+
+  const availableQty = 15;
+  const maxPrice = 10.0;
+  const minPrice = 1.0;
+
+  const handlePriceChange = (delta) => {
+    setPrice((prev) => {
+      let newPrice = Math.min(maxPrice, Math.max(minPrice, prev + delta));
+      return parseFloat(newPrice.toFixed(1));
+    });
+  };
+
+  const handleQuantityChange = (delta) => {
+    setQuantity((prev) => {
+      let newQty = Math.min(availableQty, Math.max(1, prev + delta));
+      return newQty;
+    });
+  };
+
+
+
+  const totalPut = price * quantity;
+  const totalGet = 10 * quantity; // Example logic: "You get" is ₹10 * qty
+
+ const hasBalance = balance >= totalPut;
+    const router = useRouter();
+  // const handlePlaceOrder = () => {
+  //   if (hasBalance) {
+  //     router.push("/dashboard");
+  //   }
+  // };
   return (
     
     <div className="bg-gray-50 min-h-screen py-6">
@@ -232,49 +269,169 @@ export default function ProboEventPage() {
           </div>
         </div>
 
-        {/* Right Section - Order Panel */}
-        <div className="lg:w-80">
-          <div className="bg-white p-6 rounded-lg shadow sticky top-6 space-y-4 text-sm">
-            <div className="flex space-x-2">
-              <button className="flex-1 bg-blue-600 text-white py-2 rounded font-semibold">Yes @ ₹5.5</button>
-              <button className="flex-1 bg-gray-200 text-gray-600 py-2 rounded font-semibold">No @ ₹4.5</button>
+
+    <div className="lg:w-80">
+      <div className=" rounded-lg shadow sticky top-6 text-sm border border-gray-200">
+
+        {/* Yes / No Buttons */}
+        <div className="flex">
+          <button
+            onClick={() => setSelectedSide("yes")}
+            className={`flex-1 py-2 font-semibold text-center ${
+              selectedSide === "yes"
+                ? "bg-green-100 text-green-700 border-b-2 border-green-500"
+                : "bg-gray-100 text-gray-700"
+            }`}
+          >
+            Yes ₹{price.toFixed(1)}
+          </button>
+          <button
+            onClick={() => setSelectedSide("no")}
+            className={`flex-1 py-2 font-semibold text-center ${
+              selectedSide === "no"
+                ? "bg-red-100 text-red-700 border-b-2 border-red-500"
+                : "bg-gray-100 text-gray-700"
+            }`}
+          >
+            No ₹{(10 - price).toFixed(1)}
+          </button>
+        </div>
+
+        {/* Order Type Tabs */}
+        <div className="flex border-b border-gray-200">
+          <button className="flex-1 py-2 text-center font-medium border-b-2 border-blue-500 text-blue-600">
+            Set price
+          </button>
+          <button className="flex-1 py-2 text-center font-medium text-gray-500">
+            Market
+          </button>
+        </div>
+
+        {/* Price Selector */}
+        <div className="p-4 space-y-3">
+          <div>
+            <div className="flex justify-between items-center text-gray-500 mb-1">
+              <span>Price</span>
             </div>
-            <div className="space-y-2">
-              <label className="block text-gray-600">Set price</label>
-              <div className="flex items-center space-x-2">
-                <button className="px-2 py-1 bg-gray-200 rounded">−</button>
-                <span className="flex-1 text-center font-medium">₹5.5</span>
-                <button className="px-2 py-1 bg-gray-200 rounded">+</button>
-              </div>
-              <div className="text-gray-500 text-xs">17174 qty available</div>
+            <div className="flex items-center justify-center space-x-4">
+              <button
+                className="p-2 rounded "
+                onClick={() => handlePriceChange(-0.5)}
+              >
+                <img
+                  src="https://d39axbyagw7ipf.cloudfront.net/icons/minus.svg"
+                  alt="minus"
+                  className="w-3 h-3"
+                />
+              </button>
+              <span className="text-lg font-semibold text-gray-500">₹{price.toFixed(1)}</span>
+              <button
+                className="p-2 rounded "
+                onClick={() => handlePriceChange(0.5)}
+              >
+                <img
+                  src="https://d39axbyagw7ipf.cloudfront.net/icons/plus.svg"
+                  alt="plus"
+                  className="w-3 h-3"
+                />
+              </button>
+            </div>
+            <div className="text-xs text-gray-400 mt-1">
+              {availableQty} qty available
+            </div>
+          </div>
 
-              <label className="block text-gray-600">Quantity</label>
-              <input
-                type="number"
-                min="1"
-                defaultValue="1"
-                className="w-full border border-gray-300 rounded p-2"
+          {/* Quantity Selector */}
+          <div>
+            <div className="flex justify-between items-center text-gray-500 mb-1">
+              <span>Quantity</span>
+              <img
+                src="https://d39axbyagw7ipf.cloudfront.net/icons/settings.svg"
+                alt="limit"
+                className="w-3 h-3"
               />
-              <div className="text-gray-500 text-xs">₹5.5 you put</div>
-              <div className="text-red-500 text-xs flex items-center space-x-1">
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01" />
-                </svg>
-                <span>Insufficient balance</span>
-              </div>
-
-              <button className="w-full bg-blue-400 text-white py-2 rounded font-semibold" disabled>
-                Place order
+            </div>
+            <div className="flex items-center justify-center space-x-4">
+              <button
+                className={`p-2 rounded bg-gray-100 ${
+                  quantity === 1 ? "opacity-50 cursor-not-allowed" : ""
+                }`}
+                onClick={() => handleQuantityChange(-1)}
+                disabled={quantity === 1}
+              >
+                <img
+                  src="https://d39axbyagw7ipf.cloudfront.net/icons/minus_gray.svg"
+                  alt="minus"
+                  className="w-3 h-3"
+                />
+              </button>
+              <span className="text-lg font-semibold text-gray-500">{quantity}</span>
+              <button
+                className="p-2 rounded bg-gray-100"
+                onClick={() => handleQuantityChange(1)}
+              >
+                <img
+                  src="https://d39axbyagw7ipf.cloudfront.net/icons/plus.svg"
+                  alt="plus"
+                  className="w-3 h-3"
+                />
               </button>
             </div>
           </div>
+
+          {/* Total Stats */}
+          <div className="flex justify-around border-t pt-2">
+            <div className="text-center">
+              <div className="font-semibold text-gray-500">₹{totalPut.toFixed(1)}</div>
+              <div className="text-xs text-gray-500">You put</div>
+            </div>
+            <div className="text-center">
+              <div className="font-semibold text-green-600">
+                ₹{totalGet.toFixed(1)}
+              </div>
+              <div className="text-xs text-gray-500">You get</div>
+            </div>
+          </div>
         </div>
+
+        {/* Insufficient Balance Banner */}
+        {!hasBalance && (
+          <div className="flex items-center justify-between p-3 border-t">
+            <div className="flex items-center space-x-3">
+              <img
+                src="https://probo.gumlet.io/image/upload/probo_product_images/low_balance.png"
+                alt="low balance"
+                className="w-6 h-6"
+              />
+              <div>
+                <div className="text-sm font-medium text-gray-500">Insufficient balance</div>
+                <div className="text-xs text-gray-500">Learn more</div>
+              </div>
+            </div>
+            <button className="bg-gray-900 text-white px-3 py-1 rounded text-xs font-semibold">
+              Recharge
+            </button>
+          </div>
+        )}
+
+        {/* Place Order Button */}
+        <div className="p-4">
+          <button
+            disabled={!hasBalance}
+            // onClick={handlePlaceOrder}
+            className={`w-full py-2 rounded font-semibold text-white ${
+              hasBalance
+                ? "bg-blue-600 hover:bg-blue-700"
+                : "bg-blue-400 cursor-not-allowed"
+            }`}
+          >
+            Place order
+          </button>
+        </div>
+      </div>
+    </div>
+
+
       </div>
     </div>
   );

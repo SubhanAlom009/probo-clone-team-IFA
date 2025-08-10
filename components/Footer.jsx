@@ -3,36 +3,13 @@ export default function Footer() {
     <section id="footer" className="bg-white border-t border-gray-200">
       <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8">
         {/* Top branding row */}
-        <div className="flex flex-wrap items-center justify-between border-b border-gray-200 py-6">
-          {/* Branding & buttons */}
-          <div className="flex items-center space-x-6 max-w-xs">
-            <div className="max-w-[106px] relative">
-              {/* Logo wrapper */}
-              <img
-                src="https://d39axbyagw7ipf.cloudfront.net/images/logo.webp"
-                alt="Probo"
-                title="Probo"
-                className="w-full h-auto"
-              />
-            </div>
-
-            <div className="flex flex-col space-y-2 text-xs text-gray-600">
-              <span>For 18 years and above only</span>
-              <button className="px-4 py-1 border border-gray-400 rounded-md text-gray-700 hover:bg-gray-100 transition">
-                Download App
-              </button>
-              <button className="px-4 py-1 bg-gray-900 text-white rounded-md hover:bg-gray-700 transition">
-                Trade Online
-              </button>
-            </div>
-          </div>
-        </div>
+       
 
         {/* Links row */}
         <div className="flex flex-wrap justify-between border-t border-b border-gray-200 py-6 gap-y-6">
           {/* Company */}
           <div className="w-1/2 sm:w-1/4 md:w-auto">
-            <h3 className="font-semibold mb-3">Company</h3>
+            <h3 className="font-semibold text-gray-800 mb-3">Company</h3>
             <nav className="flex flex-col space-y-2 text-gray-700 text-sm">
               <a href="/about-us" className="hover:underline">About Us</a>
               <a href="/culture" className="hover:underline">Culture</a>
@@ -41,7 +18,7 @@ export default function Footer() {
 
           {/* Resources */}
           <div className="w-1/2 sm:w-1/4 md:w-auto">
-            <h3 className="font-semibold mb-3">Resources</h3>
+            <h3 className="font-semibold text-gray-800 mb-3">Resources</h3>
             <nav className="flex flex-col space-y-2 text-gray-700 text-sm">
               <a href="/support" className="hover:underline">Help Centre</a>
               <a href="/events#" className="hover:underline">Contact Support</a>
@@ -53,7 +30,7 @@ export default function Footer() {
 
           {/* Careers */}
           <div className="w-1/2 sm:w-1/4 md:w-auto">
-            <h3 className="font-semibold mb-3">Careers</h3>
+            <h3 className="font-semibold text-gray-800 mb-3">Careers</h3>
             <nav className="flex flex-col space-y-2 text-gray-700 text-sm">
               <a href="/careers" className="hover:underline">Open Roles</a>
             </nav>
@@ -61,7 +38,7 @@ export default function Footer() {
 
           {/* Contact Us */}
           <div className="w-1/2 sm:w-1/4 md:w-auto">
-            <h3 className="font-semibold mb-3">Contact Us</h3>
+            <h3 className="font-semibold text-gray-800 mb-3">Contact Us</h3>
             <nav className="flex flex-col space-y-2 text-gray-700 text-sm">
               <a href="mailto:help@probo.in" className="hover:underline">help@probo.in</a>
               <a href="mailto:communication@probo.in" className="hover:underline">communication@probo.in</a>
@@ -87,7 +64,7 @@ export default function Footer() {
               { src: "https://d39axbyagw7ipf.cloudfront.net/images/footer/google-cloud.webp", alt: "Google Cloud" },
               { src: "https://d39axbyagw7ipf.cloudfront.net/images/footer/google-firebase.webp", alt: "Google Firebase" },
             ].map(({ src, alt }) => (
-              <div key={alt} className="w-12 h-12 relative">
+              <div key={alt} className="w-12 h-12 relative ">
                 <img src={src} alt={alt} title={alt} className="object-contain w-full h-full" />
               </div>
             ))}

@@ -9,7 +9,7 @@ export default function Navbar() {
 
   return (
     <header className="bg-white border-b sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div className="max-w-full mx-auto px-4 md:px-6 lg:px-8 h-16 flex items-center justify-between">
         
         {/* Left: Logo + Nav Links */}
         <div className="flex items-center gap-6">
@@ -48,7 +48,7 @@ export default function Navbar() {
             </Link>
           </nav>
           {/* Wallet */}
-          <div className="flex items-center gap-2 bg-gray-100 px-3 py-1 rounded-md text-sm font-semibold">
+          <div className="flex items-center gap-2  text-gray-800 bg-gray-100 px-3 py-1 rounded-md text-sm font-semibold">
             <img
               src="https://d39axbyagw7ipf.cloudfront.net/icons/wallet.svg"
               alt="Wallet"

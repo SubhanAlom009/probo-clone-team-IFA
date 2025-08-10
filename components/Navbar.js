@@ -16,6 +16,7 @@ const font = Inter({
 const NAV_LINKS_BASE = [
   { href: "/", label: "Home" },
   { href: "/events", label: "Events" },
+  { href: "/orders", label: "My Orders", auth: true },
 ];
 
 export default function Navbar() {
@@ -66,7 +67,7 @@ export default function Navbar() {
   const accentUnderline =
     "after:absolute after:left-0 after:bottom-0 after:h-0.5 after:w-0 after:bg-cyan-500 hover:after:w-full after:transition-all after:duration-300";
 
-  const navLinks = NAV_LINKS_BASE;
+  const navLinks = NAV_LINKS_BASE.filter((l) => !l.auth || user);
 
   return (
     <header

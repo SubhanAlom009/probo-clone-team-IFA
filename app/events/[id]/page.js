@@ -1,18 +1,13 @@
 "use client";
 import { useEffect, useState, useRef, useMemo, useCallback } from "react";
-import {
-  ResponsiveContainer,
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  Tooltip,
-  Legend,
-  CartesianGrid,
-} from "recharts";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import BetForm from "@/components/BetForm";
+import MyOrders from "@/components/MyOrders";
+// Replaced depth (order book) chart with timeline chart
+import MarketTimelineChart from "@/components/MarketTimelineChart";
+import OrderBookDisplay from "@/components/OrderBookDisplay";
+// import { computeSmoothedProb } from "@/lib/marketMath"; // no longer used with order-book probability
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import {
@@ -30,10 +25,13 @@ export default function EventDetailPage() {
   const { id } = useParams();
   const [event, setEvent] = useState(null);
   const [bets, setBets] = useState([]);
+  const [orders, setOrders] = useState([]); // live orders for this event
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [profile, setProfile] = useState(null);
   const [error, setError] = useState(null);
+  // Order selection lifted state (from order book -> bet form)
+  const [selectedOrder, setSelectedOrder] = useState(null); // { side, price }
   const lastFirstBetId = useRef(null);
   const { push } = useToast();
   // Fetch user profile for admin check
@@ -54,49 +52,9 @@ export default function EventDetailPage() {
 
   // ...existing code...
 
-  const chartData = useMemo(() => {
-    const eventCreatedAtSec = event?.createdAt?.seconds || null;
-    const defaultData = [
-      {
-        time: eventCreatedAtSec
-          ? new Date(eventCreatedAtSec * 1000)
-              .toISOString()
-              .slice(0, 16)
-              .replace("T", " ")
-          : "Created",
-        Yes: 50,
-        No: 50,
-      },
-    ];
-    if (!bets || !bets.length) return defaultData;
-    const sorted = [...bets].sort(
-      (a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0)
-    );
-    let yesSum = 0,
-      noSum = 0;
-    return sorted.map((b) => {
-      if (b.side === "yes") yesSum += b.stake;
-      else if (b.side === "no") noSum += b.stake;
-      const tot = yesSum + noSum;
-      return {
-        time: b.createdAt?.seconds
-          ? new Date(b.createdAt.seconds * 1000)
-              .toISOString()
-              .slice(0, 16)
-              .replace("T", " ")
-          : "-",
-        Yes: tot > 0 ? (yesSum / tot) * 100 : 50,
-        No: tot > 0 ? (noSum / tot) * 100 : 50,
-      };
-    });
-  }, [bets, event]);
+  // (Removed old ratio-over-time chart data calculation; now relying on order book visualizations only)
 
-  const [animate, setAnimate] = useState(false);
-  useEffect(() => {
-    setAnimate(true);
-    const t = setTimeout(() => setAnimate(false), 600); // disable after first draw
-    return () => clearTimeout(t);
-  }, [bets, event]);
+  // Removed line chart animation state
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
@@ -143,9 +101,23 @@ export default function EventDetailPage() {
       },
       (err) => push(err.message, "error")
     );
+    // --- ORDERS real-time listener ---
+    const ordersQ = query(
+      collection(db, "orders"),
+      where("eventId", "==", id),
+      where("status", "==", "open")
+    );
+    const unsubOrders = onSnapshot(
+      ordersQ,
+      (snap) => {
+        setOrders(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      },
+      (err) => push(err.message, "error")
+    );
     return () => {
       unsubEvent();
       unsubBets();
+      unsubOrders();
     };
   }, [id, push]);
 
@@ -156,13 +128,41 @@ export default function EventDetailPage() {
     // For now, just a placeholder in case BetForm emits an event
   }, []);
 
+  // Aggregate live order book from Firestore orders (must be before any early return)
+  const orderBook = useMemo(() => {
+    const yesMap = new Map();
+    const noMap = new Map();
+    for (const o of orders || []) {
+      if (!o.price || !o.quantityRemaining || o.quantityRemaining <= 0)
+        continue;
+      const price = Number(o.price);
+      const qty = Number(o.quantityRemaining);
+      if (o.side === "yes") {
+        yesMap.set(price, (yesMap.get(price) || 0) + qty);
+      } else if (o.side === "no") {
+        noMap.set(price, (noMap.get(price) || 0) + qty);
+      }
+    }
+    return {
+      yes: Array.from(yesMap.entries())
+        .map(([price, qty]) => ({ price, qty }))
+        .sort((a, b) => b.price - a.price),
+      no: Array.from(noMap.entries())
+        .map(([price, qty]) => ({ price, qty }))
+        .sort((a, b) => a.price - b.price),
+    };
+  }, [orders]);
+
   if (!event)
     return <div className="mt-10">{error ? error : "Loading event..."}</div>;
 
   const yes = event.yesStake || 0;
   const no = event.noStake || 0;
   const total = yes + no;
-  const prob = total > 0 ? yes / total : 0.5;
+  // Market probability from best YES price (order book)
+  const bestYesPrice = orderBook.yes?.[0]?.price ?? 5;
+  const bestNoPrice = orderBook.no?.[0]?.price ?? 5;
+  const prob = bestYesPrice ? bestYesPrice / 10 : 0.5;
 
   return (
     <div className="flex flex-col md:flex-row gap-8 mt-4">
@@ -187,86 +187,44 @@ export default function EventDetailPage() {
             {event.description}
           </p>
         </div>
-        <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 space-y-5 shadow-lg">
-          <div className="flex items-center gap-4">
-            <div className="flex-1">
-              <div className="flex gap-2 mb-3">
-                <span className="flex-1 text-center py-1 rounded-full bg-[#0a3d62] text-white font-semibold">
-                  Yes {(prob * 100).toFixed(1)}%
-                </span>
-                <span className="flex-1 text-center py-1 rounded-full bg-[#7b1113] text-white font-semibold">
-                  No {((1 - prob) * 100).toFixed(1)}%
-                </span>
-              </div>
-              <div className="flex justify-between text-sm text-neutral-400 font-medium">
-                <span className="text-neutral-300">Total {total}</span>
-              </div>
-            </div>
-            <div className="text-right text-sm space-y-1">
-              <div>
-                Status:{" "}
-                <span className="font-medium text-lime-400">
-                  {event.status}
-                </span>
-              </div>
-              {event.resolvedOutcome && (
-                <div>
-                  Outcome:{" "}
-                  <span className="text-lime-400">{event.resolvedOutcome}</span>
-                </div>
-              )}
-            </div>
-          </div>
+        {/* Order Book (levels) */}
+        <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 shadow-lg">
+          <OrderBookDisplay
+            orderBook={orderBook}
+            onSelect={(price, side) => {
+              setSelectedOrder({ side, price });
+            }}
+          />
         </div>
-        <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 shadow-lg min-h-[280px] flex flex-col relative">
-          <h2 className="font-semibold text-lg mb-2 tracking-tight text-white">
-            Yes/No Ratio Over Time
-          </h2>
-          <div className="flex-1 min-h-[220px] relative">
-            <ResponsiveContainer width="100%" height={220}>
-              <LineChart
-                data={chartData}
-                margin={{ top: 10, right: 20, left: 0, bottom: 10 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke="#222" />
-                <XAxis
-                  dataKey="time"
-                  tick={{ fill: "#888", fontSize: 12 }}
-                  minTickGap={20}
-                />
-                <YAxis
-                  domain={[0, 100]}
-                  tick={{ fill: "#888", fontSize: 12 }}
-                  tickFormatter={(v) => v + "%"}
-                />
-                <Tooltip formatter={(v) => v.toFixed(1) + "%"} />
-                <Legend />
-                <Line
-                  type="monotone"
-                  dataKey="Yes"
-                  stroke="#06b6d4"
-                  dot={false}
-                  strokeWidth={2}
-                  isAnimationActive={animate}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="No"
-                  stroke="#818cf8"
-                  dot={false}
-                  strokeWidth={2}
-                  isAnimationActive={animate}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-            {(!bets || bets.length === 0) && (
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <span className="text-neutral-500 bg-neutral-900/80 px-4 py-2 rounded-lg">
-                  No bets yet. Chart shows default 50/50.
-                </span>
-              </div>
-            )}
-          </div>
+        {/* Market Timeline (price / probability over time) */}
+        <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 shadow-lg">
+          <MarketTimelineChart
+            data={bets
+              .slice()
+              .reverse()
+              .map((b) => ({
+                time: b.createdAt?.toMillis
+                  ? b.createdAt.toMillis()
+                  : Date.now(),
+                yesPrice:
+                  b.side === "yes"
+                    ? b.price || (b.oddsSnapshot ? b.oddsSnapshot * 10 : null)
+                    : b.price
+                    ? 10 - b.price
+                    : null,
+                prob:
+                  b.side === "yes"
+                    ? b.price
+                      ? b.price / 10
+                      : b.oddsSnapshot || 0.5
+                    : b.price
+                    ? 1 - b.price / 10
+                    : b.oddsSnapshot
+                    ? 1 - b.oddsSnapshot
+                    : 0.5,
+              }))
+              .filter((d) => d.yesPrice !== null)}
+          />
         </div>
       </div>
       {/* Right: Bet form and recent bets */}
@@ -281,14 +239,25 @@ export default function EventDetailPage() {
               Event resolved.
             </div>
           ) : user && event.status === "open" ? (
-            <BetForm eventId={event.id} onBetPlaced={handleBetPlaced} />
+            <>
+              <BetForm
+                eventId={event.id}
+                onBetPlaced={handleBetPlaced}
+                market={{ yesStake: yes, noStake: no, prob }}
+                orderBook={orderBook}
+                selectedOrder={selectedOrder}
+                onClearSelected={() => setSelectedOrder(null)}
+                userId={user.uid}
+              />
+              <MyOrders eventId={event.id} userId={user.uid} />
+            </>
           ) : (
             <div className="text-neutral-500 text-center">
               Sign in to place a bet.
             </div>
           )}
         </div>
-        <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 shadow-lg">
+        {/* <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 shadow-lg">
           <h2 className="font-semibold text-lg mb-4 tracking-tight text-white">
             Recent Bets
           </h2>
@@ -321,7 +290,7 @@ export default function EventDetailPage() {
               </div>
             ))}
           </div>
-        </div>
+        </div> */}
       </div>
     </div>
   );

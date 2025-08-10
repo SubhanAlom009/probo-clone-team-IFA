@@ -4,42 +4,7 @@ import Link from "next/link";
 import { db } from "@/lib/firebase";
 import { collection, onSnapshot, query, orderBy } from "firebase/firestore";
 import { useToast } from "@/components/ToastProvider";
-
-function EventCard({ ev }) {
-  const yes = ev.yesStake || 0;
-  const no = ev.noStake || 0;
-  const total = yes + no;
-  const yesProb = total > 0 ? yes / total : 0.5;
-  const noProb = 1 - yesProb;
-
-  // Calculate dynamic prices based on probabilities
-  const yesPrice = (yesProb * 10).toFixed(0); // Example: ₹7 for 70% chance
-  const noPrice = (noProb * 10).toFixed(0); // Example: ₹3 for 30% chance
-
-  return (
-    <Link href={`/events/${ev.id}`}>
-      <div className="bg-neutral-900 rounded-lg shadow-md p-5 flex flex-col justify-between cursor-pointer hover:shadow-lg transition-shadow">
-        {/* Main Section */}
-        <div className="flex flex-col mb-4">
-          <h2 className="font-bold text-lg mb-2 text-white">{ev.title}</h2>
-          <p className="text-[#a0a0a0] text-sm">
-            {ev.description || "No description available."}
-          </p>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="flex gap-4">
-          <button className="flex-1 bg-[#0a3d62] text-white font-bold py-2 rounded hover:brightness-110">
-            Yes ₹{yesPrice}
-          </button>
-          <button className="flex-1 bg-[#7b1113] text-white font-bold py-2 rounded hover:brightness-110">
-            No ₹{noPrice}
-          </button>
-        </div>
-      </div>
-    </Link>
-  );
-}
+import EventCard from "@/components/EventCard";
 
 export default function EventsPage() {
   const [events, setEvents] = useState(null);

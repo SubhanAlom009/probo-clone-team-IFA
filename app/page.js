@@ -141,28 +141,32 @@ function FeaturedSection({ events, loading }) {
 }
 
 function EventCard({ ev }) {
-  const total = (ev.stakeYes || 0) + (ev.stakeNo || 0);
-  const yesPct = total ? Math.round(((ev.stakeYes || 0) / total) * 100) : 0;
+  const yes = ev.stakeYes || 0;
+  const no = ev.stakeNo || 0;
+  const total = yes + no;
+  const yesProb = total > 0 ? yes / total : 0.5;
+  const noProb = 1 - yesProb;
   return (
     <Link
       href={`/events/${ev.id}`}
-      className="group relative rounded-xl p-4 flex flex-col gap-3 glass-card hover:shadow-lg transition-shadow"
+      className="group relative rounded-xl p-4 flex flex-col glass-card hover:shadow-lg transition-shadow min-h-[170px]"
     >
       <h3 className="text-sm font-semibold leading-snug text-slate-100 line-clamp-3 group-hover:text-white">
         {ev.title}
       </h3>
-      <div className="h-2 rounded-full bg-slate-700/40 overflow-hidden">
-        <div
-          style={{ width: `${yesPct}%` }}
-          className="h-full bg-gradient-to-r from-[#06b6d4] to-[#6366f1] transition-[width] duration-500"
-        />
+      <div className="flex justify-end text-[11px] text-slate-400 font-medium mt-1">
+        <span>{total} coins</span>
       </div>
-      <div className="flex items-center justify-between text-[10px] uppercase tracking-wide font-semibold text-slate-400">
-        <span className="flex items-center gap-1">
-          <Dot color="#06b6d4" /> YES {yesPct}%
+      <div className="mt-auto flex justify-between gap-2 pt-2">
+        <span className="flex-1">
+          <span className="block w-full rounded-full py-1.5 text-center font-semibold text-sm bg-cyan-900/60 text-cyan-300 border border-cyan-700">
+            Yes {(yesProb * 100).toFixed(1)}%
+          </span>
         </span>
-        <span className="flex items-center gap-1">
-          <Dot color="#6366f1" /> NO {100 - yesPct}%
+        <span className="flex-1">
+          <span className="block w-full rounded-full py-1.5 text-center font-semibold text-sm bg-pink-900/60 text-pink-300 border border-pink-700">
+            No {(noProb * 100).toFixed(1)}%
+          </span>
         </span>
       </div>
     </Link>

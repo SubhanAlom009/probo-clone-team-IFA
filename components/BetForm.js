@@ -48,8 +48,8 @@ export default function BetForm({ eventId, onPlaced }) {
       className="group relative overflow-hidden rounded-xl border border-[var(--c-border)] bg-gradient-to-br from-[var(--c-base-800)] via-[var(--c-base-900)] to-[#0c1018] p-4 flex flex-col gap-4 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.4)]"
     >
       <div className="absolute inset-0 pointer-events-none opacity-0 group-hover:opacity-100 transition bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.06),transparent_60%)]" />
-      <div className="flex items-center gap-3">
-        <div className="inline-flex p-1 rounded-lg bg-[var(--c-base-700)] border border-[var(--c-border)]">
+      <div className="flex flex-col gap-4">
+        <div className="inline-flex self-center p-1 rounded-lg bg-[var(--c-base-700)] border border-[var(--c-border)] mb-2">
           {["yes", "no"].map((s) => (
             <button
               key={s}
@@ -68,23 +68,23 @@ export default function BetForm({ eventId, onPlaced }) {
             </button>
           ))}
         </div>
-        <div className="flex-1 flex items-center gap-2">
-          <div className="flex-1 relative">
+        <div className="flex flex-col gap-3">
+          <div className="relative">
             <input
               type="number"
               min="1"
               value={stake}
               onChange={(e) => setStake(e.target.value)}
               placeholder="Stake"
-              className="w-full peer bg-[var(--c-base-900)]/70 border border-[var(--c-border)] rounded-md px-3 py-2 text-sm focus:outline-none focus:border-[var(--accent-primary)] placeholder:text-[var(--c-text-tertiary)]"
+              className="w-full peer bg-[var(--c-base-900)]/70 border border-[var(--c-border)] rounded-md px-3 py-3 text-base focus:outline-none focus:border-[var(--accent-primary)] placeholder:text-[var(--c-text-tertiary)]"
             />
-            <span className="pointer-events-none absolute -top-2 left-2 bg-[var(--c-base-900)] px-1 text-[10px] font-medium text-[var(--accent-primary)]">
+            <span className="pointer-events-none absolute -top-2 left-2 bg-[var(--c-base-900)] px-1 text-[11px] font-medium text-[var(--accent-primary)]">
               AMOUNT
             </span>
           </div>
           <button
             disabled={loading}
-            className="relative overflow-hidden rounded-md px-5 py-2 text-sm font-semibold text-white bg-gradient-to-br from-[var(--accent-primary,#2563EB)] via-[var(--accent-secondary,#EC4899)] to-[var(--accent-primary,#2563EB)] bg-[length:200%_200%] animate-[gradientMove_6s_linear_infinite] disabled:opacity-60"
+            className="relative overflow-hidden rounded-md px-5 py-3 text-base font-semibold text-white bg-gradient-to-br from-[var(--accent-primary,#2563EB)] via-[var(--accent-secondary,#EC4899)] to-[var(--accent-primary,#2563EB)] bg-[length:200%_200%] animate-[gradientMove_6s_linear_infinite] disabled:opacity-60 shadow-md"
           >
             <span className="relative z-10">
               {loading ? "Placing..." : "Place Bet"}

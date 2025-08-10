@@ -10,10 +10,11 @@ function EventCard({ ev }) {
   const no = ev.noStake || 0;
   const total = yes + no;
   const yesProb = total > 0 ? yes / total : 0.5;
+  const noProb = 1 - yesProb;
   return (
     <Link
       href={`/events/${ev.id}`}
-      className="ui-card hoverable block group relative overflow-hidden"
+  className="ui-card hoverable group relative overflow-hidden flex flex-col min-h-[150px]"
     >
       <div className="absolute inset-0 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-br from-cyan-500/5 via-transparent to-indigo-600/10" />
       <div className="flex items-start justify-between mb-3 gap-3 relative">
@@ -30,17 +31,20 @@ function EventCard({ ev }) {
           {ev.status}
         </span>
       </div>
-      <div className="mb-3">
-        <div className="h-1.5 w-full rounded-full bg-neutral-800 overflow-hidden">
-          <div
-            className="h-full bg-gradient-to-r from-cyan-500 to-indigo-500"
-            style={{ width: `${(yesProb * 100).toFixed(2)}%` }}
-          />
-        </div>
-      </div>
-      <div className="flex justify-between text-[11px] text-[var(--c-text-faint)] font-medium">
-        <span className="text-cyan-300">Yes {(yesProb * 100).toFixed(1)}%</span>
+      <div className="flex justify-end text-[11px] text-[var(--c-text-faint)] font-medium mt-2">
         <span className="text-neutral-400">{total} coins</span>
+      </div>
+      <div className="mt-auto flex justify-between gap-2 pt-2">
+        <span className="flex-1">
+          <span className="block w-full rounded-full py-1.5 text-center font-semibold text-sm bg-cyan-900/60 text-cyan-300 border border-cyan-700">
+            Yes {(yesProb * 100).toFixed(1)}%
+          </span>
+        </span>
+        <span className="flex-1">
+          <span className="block w-full rounded-full py-1.5 text-center font-semibold text-sm bg-pink-900/60 text-pink-300 border border-pink-700">
+            No {(noProb * 100).toFixed(1)}%
+          </span>
+        </span>
       </div>
     </Link>
   );

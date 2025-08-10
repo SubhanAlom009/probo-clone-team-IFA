@@ -2,6 +2,8 @@
 import { auth } from "@/lib/firebase";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useToast } from "@/components/ToastProvider";
 import Link from "next/link";
 
 export default function SignupPage() {
@@ -10,6 +12,8 @@ export default function SignupPage() {
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const router = useRouter();
+  const { push: pushToast } = useToast();
 
   async function handleSignup(e) {
     e.preventDefault();
@@ -17,6 +21,8 @@ export default function SignupPage() {
     setLoading(true);
     try {
       await createUserWithEmailAndPassword(auth, email, password);
+      pushToast("Account created!", "success");
+      router.push("/profile");
     } catch (e) {
       setError(e.message);
     } finally {

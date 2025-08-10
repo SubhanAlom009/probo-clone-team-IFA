@@ -9,6 +9,7 @@ import {
   where,
   orderBy,
   onSnapshot,
+  doc,
 } from "firebase/firestore";
 
 export default function ProfilePage() {
@@ -25,22 +26,43 @@ export default function ProfilePage() {
     const unsubAuth = onAuthStateChanged(auth, async (u) => {
       setUser(u);
       if (u) {
+        // Initial fetch (fallback)
         try {
           const p = await apiFetch("/api/users/me");
           setProfile(p);
           const m = await apiFetch("/api/users/me/metrics");
           setMetrics(m);
         } catch {}
+        // Realtime user doc (balance & role updates)
+        const userRef = doc(db, "users", u.uid);
+        const unsubUser = onSnapshot(userRef, (snap) => {
+          if (snap.exists())
+            setProfile((prev) => ({
+              ...(prev || {}),
+              ...snap.data(),
+              id: snap.id,
+            }));
+        });
+        // Realtime bets
         const qB = query(
           collection(db, "bets"),
           where("userId", "==", u.uid),
           orderBy("createdAt", "desc")
         );
-        const unsubBets = onSnapshot(qB, (snap) =>
-          setBets(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
-        );
+        const unsubBets = onSnapshot(qB, async (snap) => {
+          const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+          setBets(list);
+          // Refresh metrics after bet change (simple approach)
+          try {
+            const m = await apiFetch("/api/users/me/metrics");
+            setMetrics(m);
+          } catch {}
+        });
         setLoading(false);
-        return () => unsubBets();
+        return () => {
+          unsubUser();
+          unsubBets();
+        };
       } else {
         setLoading(false);
       }
@@ -72,16 +94,16 @@ export default function ProfilePage() {
   const isAdmin = profile?.role === "admin";
   const requested = profile?.upgradeRequested;
   return (
-    <div className="space-y-8">
+    <div className="space-y-10">
       <header className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-neutral-400 text-sm">
+          <h1 className="text-4xl font-extrabold tracking-tight">Dashboard</h1>
+          <p className="text-neutral-400 text-base mt-1">
             Welcome, {profile?.displayName || user.email}
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <div className="bg-neutral-900 border border-neutral-700 px-4 py-2 rounded-lg text-sm font-medium">
+          <div className="bg-neutral-900 border border-neutral-700 px-5 py-3 rounded-xl text-base font-semibold">
             Balance:{" "}
             <span className="text-cyan-400 font-semibold">
               {profile?.balance}
@@ -108,7 +130,7 @@ export default function ProfilePage() {
         </div>
       </header>
 
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard
           label="Total Staked"
           value={metrics ? metrics.totalStake : "-"}
@@ -129,7 +151,7 @@ export default function ProfilePage() {
       </section>
 
       <div>
-        <div className="flex border-b border-neutral-800 mb-4 text-sm">
+        <div className="flex border-b border-neutral-800 mb-6 text-sm">
           {["bets", "ledger"].map((tab) => (
             <button
               key={tab}
@@ -145,11 +167,11 @@ export default function ProfilePage() {
           ))}
         </div>
         {activeTab === "bets" && (
-          <div className="space-y-2 text-sm">
+          <div className="space-y-3 text-sm">
             {bets.map((b) => (
               <div
                 key={b.id}
-                className="grid grid-cols-5 items-center gap-2 bg-neutral-900 border border-neutral-800 rounded p-2"
+                className="grid grid-cols-5 items-center gap-3 bg-neutral-900 border border-neutral-800 rounded-lg p-3"
               >
                 <span className="col-span-1 capitalize font-medium {b.outcome && b.outcome===b.side ? 'text-lime-400':' '}">
                   {b.side}
@@ -183,12 +205,12 @@ export default function ProfilePage() {
 
 function MetricCard({ label, value, positive }) {
   return (
-    <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-4 flex flex-col gap-2">
-      <span className="text-xs uppercase tracking-wide text-neutral-500">
+    <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5 flex flex-col gap-3 shadow-sm">
+      <span className="text-[11px] uppercase tracking-wider text-neutral-500 font-medium">
         {label}
       </span>
       <span
-        className={`text-xl font-semibold ${
+        className={`text-2xl font-bold leading-none ${
           positive === undefined
             ? ""
             : positive

@@ -2,6 +2,8 @@
 import { auth, googleProvider } from "@/lib/firebase";
 import { signInWithPopup, signInWithEmailAndPassword } from "firebase/auth";
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useToast } from "@/components/ToastProvider";
 import Link from "next/link";
 
 export default function LoginPage() {
@@ -10,13 +12,20 @@ export default function LoginPage() {
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const router = useRouter();
+  const { push: pushToast } = useToast();
 
   async function handleGoogle() {
     setError("");
+    setLoading(true);
     try {
       await signInWithPopup(auth, googleProvider);
+      pushToast("Signed in!", "success");
+      router.push("/profile");
     } catch (e) {
       setError(e.message);
+    } finally {
+      setLoading(false);
     }
   }
   async function handleEmail(e) {
@@ -25,6 +34,8 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);
+      pushToast("Signed in!", "success");
+      router.push("/profile");
     } catch (e) {
       setError(e.message);
     } finally {

@@ -24,34 +24,17 @@ export default function BetForm({
   eventId,
   userId,
   orderBook,
-  market,
+  market, // { yesPrice, noPrice }
   selectedOrder,
   onClearSelected,
   onPlaced,
   onBetPlaced,
 }) {
-  const ob = orderBook || fallbackOrderBook;
-  // Probo-style best ask pricing
-  function getBestAsk(levels) {
-    if (!levels || !levels.length) return null;
-    return Math.min(...levels.map((l) => l.price));
-  }
-  let defaultYesPrice = null;
-  let defaultNoPrice = null;
-  const bestNoAsk = getBestAsk(ob.no);
-  if (typeof bestNoAsk === "number") {
-    defaultYesPrice = bestNoAsk;
-    defaultNoPrice = Number((10 - defaultYesPrice).toFixed(2));
-  } else {
-    const bestYesAsk = getBestAsk(ob.yes);
-    if (typeof bestYesAsk === "number") {
-      defaultNoPrice = bestYesAsk;
-      defaultYesPrice = Number((10 - defaultNoPrice).toFixed(2));
-    } else {
-      defaultYesPrice = 5;
-      defaultNoPrice = 5;
-    }
-  }
+  // Use provided market (last-trade) prices as defaults; fallback gracefully
+  const defaultYesPrice =
+    typeof market?.yesPrice === "number" ? market.yesPrice : 5;
+  const defaultNoPrice =
+    typeof market?.noPrice === "number" ? market.noPrice : 5;
 
   const { push } = useToast();
   const [side, setSide] = useState("yes");
@@ -189,10 +172,11 @@ export default function BetForm({
     [payout, totalCost]
   );
 
-  const yesProbPct = useMemo(
-    () => ((normalizedPrice / 10) * 100).toFixed(1),
-    [normalizedPrice]
-  );
+  const yesProbPct = useMemo(() => {
+    // Market probability shown at top should reflect current market yesPrice (not editing field) per Option B
+    const yp = typeof defaultYesPrice === "number" ? defaultYesPrice : 5;
+    return ((yp / 10) * 100).toFixed(1);
+  }, [defaultYesPrice]);
   const noProbPct = useMemo(
     () => (100 - Number(yesProbPct)).toFixed(1),
     [yesProbPct]
@@ -321,6 +305,28 @@ export default function BetForm({
               disabled={loading}
             />
           </div>
+        </div>
+        <div className="text-[10px] -mt-1 mb-1 text-neutral-400 leading-snug">
+          {(() => {
+            const p = Number(price) || 0;
+            if (p <= 0) return null;
+            if (side === "yes") {
+              return (
+                <>
+                  YES price = ₹{p.toFixed(2)} (you pay this). Implied NO price =
+                  ₹{(10 - p).toFixed(2)}.
+                </>
+              );
+            }
+            return (
+              <>
+                You entered a YES price of ₹{p.toFixed(2)} while taking NO. Your
+                effective NO cost per share is ₹{(10 - p).toFixed(2)} (the
+                complement). If this matches an opposite YES order, trade sets
+                market YES = ₹{p.toFixed(2)}, NO = ₹{(10 - p).toFixed(2)}.
+              </>
+            );
+          })()}
         </div>
         <div className="grid grid-cols-3 gap-2 text-[11px] font-medium">
           <div className="bg-neutral-800 rounded-md px-3 py-2 flex flex-col">

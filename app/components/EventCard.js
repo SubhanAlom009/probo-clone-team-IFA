@@ -10,6 +10,7 @@ export default function EventCard({ ev }) {
     ev.currentNoPrice !== null && ev.currentNoPrice !== undefined
       ? `₹${ev.currentNoPrice}`
       : "₹5";
+  // Probabilities could be derived as (currentYesPrice/10)*100 if needed
 
   return (
     <Link href={`/events/${ev.id}`}>

@@ -28,54 +28,42 @@ export default function EventsPage() {
       async (snap) => {
         const evs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
         setEvents(evs);
-        // Fetch best prices (Probo-style) and last matched for each event
+        // Fetch Option B prices (last trade driven with order book fallback) for each event
         const data = {};
         await Promise.all(
           evs.map(async (ev) => {
-            // Collect open YES orders (for fallback)
-            const yesQ = query(
-              collection(db, "orders"),
-              where("eventId", "==", ev.id),
-              where("side", "==", "yes"),
-              where("status", "==", "open")
-            );
-            const yesSnap = await getDocs(yesQ);
-            let bestYesAsk = null; // lowest YES order price (used only if no NO orders)
-            yesSnap.forEach((d) => {
-              const o = d.data();
-              if (typeof o.price === "number") {
-                if (bestYesAsk === null || o.price < bestYesAsk)
-                  bestYesAsk = o.price;
-              }
-            });
-            // Last matched price
+            // Last trade (bet) fetch first
             const betsQ = query(
               collection(db, "bets"),
               where("eventId", "==", ev.id),
               orderBy("createdAt", "desc")
             );
             const betsSnap = await getDocs(betsQ);
-            let lastMatched = null;
-            let lastYesBet = null;
-            betsSnap.forEach((d, i) => {
-              const b = d.data();
-              if (i === 0) lastMatched = b.price || null;
-              if (
-                !lastYesBet &&
-                b.side === "yes" &&
-                typeof b.price === "number"
-              )
-                lastYesBet = b;
-            });
-            // NO orders determine YES price (best NO ask sets YES price)
+            let lastTradeYes = null; // YES price view
+            const firstBet = betsSnap.docs[0]?.data();
+            if (firstBet && typeof firstBet.price === "number") {
+              lastTradeYes =
+                firstBet.side === "yes" ? firstBet.price : 10 - firstBet.price;
+            }
+
+            // Order book fallbacks
             const noQ = query(
               collection(db, "orders"),
               where("eventId", "==", ev.id),
               where("side", "==", "no"),
               where("status", "==", "open")
             );
-            const noSnap = await getDocs(noQ);
-            let bestNoAsk = null; // lowest NO order price
+            const yesQ = query(
+              collection(db, "orders"),
+              where("eventId", "==", ev.id),
+              where("side", "==", "yes"),
+              where("status", "==", "open")
+            );
+            const [noSnap, yesSnap] = await Promise.all([
+              getDocs(noQ),
+              getDocs(yesQ),
+            ]);
+            let bestNoAsk = null;
             noSnap.forEach((d) => {
               const o = d.data();
               if (typeof o.price === "number") {
@@ -83,30 +71,32 @@ export default function EventsPage() {
                   bestNoAsk = o.price;
               }
             });
+            let bestYesAsk = null;
+            yesSnap.forEach((d) => {
+              const o = d.data();
+              if (typeof o.price === "number") {
+                if (bestYesAsk === null || o.price < bestYesAsk)
+                  bestYesAsk = o.price;
+              }
+            });
 
-            let currentYesPrice = null;
-            let currentNoPrice = null;
-            if (bestNoAsk !== null) {
+            let currentYesPrice;
+            let currentNoPrice;
+            if (typeof lastTradeYes === "number") {
+              currentYesPrice = lastTradeYes;
+              currentNoPrice = Number((10 - currentYesPrice).toFixed(2));
+            } else if (typeof bestNoAsk === "number") {
               currentYesPrice = bestNoAsk;
               currentNoPrice = Number((10 - currentYesPrice).toFixed(2));
-            } else if (bestYesAsk !== null) {
+            } else if (typeof bestYesAsk === "number") {
               currentNoPrice = bestYesAsk;
               currentYesPrice = Number((10 - currentNoPrice).toFixed(2));
             } else {
-              // Fall back to last matched YES if exists
-              if (lastYesBet && typeof lastYesBet.price === "number") {
-                currentYesPrice = lastYesBet.price;
-                currentNoPrice = Number((10 - currentYesPrice).toFixed(2));
-              } else if (typeof lastMatched === "number") {
-                currentYesPrice = lastMatched;
-                currentNoPrice = Number((10 - currentYesPrice).toFixed(2));
-              } else {
-                currentYesPrice = 5;
-                currentNoPrice = 5;
-              }
+              currentYesPrice = 5;
+              currentNoPrice = 5;
             }
 
-            data[ev.id] = { currentYesPrice, currentNoPrice, lastMatched };
+            data[ev.id] = { currentYesPrice, currentNoPrice };
           })
         );
         setMarketData(data);

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
-import { doc, getDoc } from "firebase/firestore";
+import { useState, useEffect, useMemo, useRef } from "react";
+import { doc, getDoc, onSnapshot } from "firebase/firestore";
 import { placeOrder } from "@/lib/db";
 import { db } from "@/lib/firebase";
 import { useToast } from "@/app/components/ToastProvider";
@@ -31,9 +31,27 @@ export default function BetForm({
   onBetPlaced,
 }) {
   const ob = orderBook || fallbackOrderBook;
-  const inferredYes = market?.prob ? Number((market.prob * 10).toFixed(2)) : 5;
-  const defaultYesPrice = ob.yes?.[0]?.price || inferredYes;
-  const defaultNoPrice = ob.no?.[0]?.price || 10 - defaultYesPrice;
+  // Probo-style best ask pricing
+  function getBestAsk(levels) {
+    if (!levels || !levels.length) return null;
+    return Math.min(...levels.map((l) => l.price));
+  }
+  let defaultYesPrice = null;
+  let defaultNoPrice = null;
+  const bestNoAsk = getBestAsk(ob.no);
+  if (typeof bestNoAsk === "number") {
+    defaultYesPrice = bestNoAsk;
+    defaultNoPrice = Number((10 - defaultYesPrice).toFixed(2));
+  } else {
+    const bestYesAsk = getBestAsk(ob.yes);
+    if (typeof bestYesAsk === "number") {
+      defaultNoPrice = bestYesAsk;
+      defaultYesPrice = Number((10 - defaultNoPrice).toFixed(2));
+    } else {
+      defaultYesPrice = 5;
+      defaultNoPrice = 5;
+    }
+  }
 
   const { push } = useToast();
   const [side, setSide] = useState("yes");
@@ -54,6 +72,86 @@ export default function BetForm({
       } catch (_) {}
     })();
   }, [userId]);
+
+  // Listen for event resolution and show win/loss toast
+  const unsubEventRef = useRef(null);
+  useEffect(() => {
+    if (!eventId || !userId) return;
+    const eventRef = doc(db, "events", eventId);
+    let resolved = false;
+    unsubEventRef.current?.();
+    unsubEventRef.current = onSnapshot(eventRef, async (snap) => {
+      if (!snap.exists()) return;
+      const data = snap.data();
+      if (data.status === "resolved" && data.resolvedOutcome && !resolved) {
+        resolved = true;
+        // Find user's bets for this event
+        try {
+          const betsSnap = await getDoc(doc(db, "users", userId));
+          // Fetch bets for this user and event
+          const betsQ = await import("firebase/firestore").then((firestore) =>
+            firestore.query(
+              firestore.collection(db, "bets"),
+              firestore.where("userId", "==", userId),
+              firestore.where("eventId", "==", eventId)
+            )
+          );
+          const betsDocs = await import("firebase/firestore").then(
+            (firestore) => firestore.getDocs(betsQ)
+          );
+          let win = false;
+          let payout = 0;
+          let found = false;
+          betsDocs.forEach((doc) => {
+            const b = doc.data();
+            if (b.status === "settled" && b.outcome === b.side) {
+              win = true;
+              payout += b.payout || 0;
+              found = true;
+            } else if (b.status === "settled") {
+              found = true;
+            }
+          });
+          if (found) {
+            if (win) {
+              push(`You WON! Payout: ₹${payout.toFixed(2)}`, "success");
+            } else {
+              push("You lost this event.", "error");
+            }
+          } else {
+            // No matched bets, check for refund
+            // Check for refunded orders
+            const ordersQ = await import("firebase/firestore").then(
+              (firestore) =>
+                firestore.query(
+                  firestore.collection(db, "orders"),
+                  firestore.where("userId", "==", userId),
+                  firestore.where("eventId", "==", eventId),
+                  firestore.where("status", "==", "refunded")
+                )
+            );
+            const ordersDocs = await import("firebase/firestore").then(
+              (firestore) => firestore.getDocs(ordersQ)
+            );
+            let refund = 0;
+            ordersDocs.forEach((doc) => {
+              const o = doc.data();
+              refund += o.lockedAmount || 0;
+            });
+            if (refund > 0) {
+              push(`Unmatched orders refunded: ₹${refund.toFixed(2)}`, "info");
+            }
+          }
+        } catch (e) {
+          // fallback toast
+          push("Event resolved! Check your balance.", "info");
+        }
+      }
+    });
+    return () => {
+      unsubEventRef.current?.();
+    };
+  }, [eventId, userId, push]);
 
   // Apply selected order
   useEffect(() => {
@@ -149,7 +247,7 @@ export default function BetForm({
             YES PRICE
           </p>
           <p className="text-lg font-semibold text-emerald-400">
-            ₹{defaultYesPrice}
+            {typeof defaultYesPrice === "number" ? `₹${defaultYesPrice}` : "--"}
           </p>
         </div>
         <div className="text-center space-y-1">
@@ -163,7 +261,7 @@ export default function BetForm({
         <div className="space-y-1 text-right">
           <p className="text-neutral-400 text-[11px] tracking-wide">NO PRICE</p>
           <p className="text-lg font-semibold text-rose-400">
-            ₹{defaultNoPrice}
+            {typeof defaultNoPrice === "number" ? `₹${defaultNoPrice}` : "--"}
           </p>
         </div>
       </div>

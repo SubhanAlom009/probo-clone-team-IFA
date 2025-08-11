@@ -21,8 +21,8 @@ export default function OrderBookDisplay({
     .sort((a, b) => a.price - b.price)
     .slice(0, maxRows);
 
-  // Best bid/ask
-  const bestYes = yesLevels[0]?.price;
+  // (No explicit best labeling per user request)
+  const bestYes = yesLevels[0]?.price; // kept internally if needed later
   const bestNo = noLevels[0]?.price;
 
   return (
@@ -38,7 +38,7 @@ export default function OrderBookDisplay({
             <div className="text-neutral-600 text-xs py-2">No YES orders</div>
           )}
           {yesLevels.map((lvl, i) => {
-            const isBest = lvl.price === bestYes;
+            const isBest = false; // suppress best highlighting
             const isMine = userId && lvl.userId === userId;
             return (
               <button
@@ -46,11 +46,7 @@ export default function OrderBookDisplay({
                 type="button"
                 onClick={() => onSelect?.(lvl.price, "yes")}
                 className={`w-full group flex items-center justify-between gap-2 rounded-md border px-2 py-1 text-xs font-medium transition
-                  ${
-                    isBest
-                      ? "border-emerald-400 bg-emerald-900/70"
-                      : "border-emerald-700/30 bg-emerald-950/40"
-                  }
+                  border-emerald-700/30 bg-emerald-950/40
                   ${isMine ? "ring-2 ring-cyan-400/60" : ""}
                   hover:bg-emerald-900/60 text-emerald-300`}
                 title={isMine ? "Your order" : "Click to pre-fill order form"}
@@ -59,9 +55,7 @@ export default function OrderBookDisplay({
                 <span className="tabular-nums text-emerald-400 group-hover:text-emerald-200">
                   {lvl.qty}
                 </span>
-                {isBest && (
-                  <span className="ml-1 text-[10px] text-cyan-400">Best</span>
-                )}
+                {/* Best label removed */}
                 {isMine && (
                   <span className="ml-1 text-[10px] text-cyan-300">Mine</span>
                 )}
@@ -75,7 +69,7 @@ export default function OrderBookDisplay({
             <div className="text-neutral-600 text-xs py-2">No NO orders</div>
           )}
           {noLevels.map((lvl, i) => {
-            const isBest = lvl.price === bestNo;
+            const isBest = false; // suppress best highlighting
             const isMine = userId && lvl.userId === userId;
             return (
               <button
@@ -83,11 +77,7 @@ export default function OrderBookDisplay({
                 type="button"
                 onClick={() => onSelect?.(lvl.price, "no")}
                 className={`w-full group flex items-center justify-between gap-2 rounded-md border px-2 py-1 text-xs font-medium transition
-                  ${
-                    isBest
-                      ? "border-rose-400 bg-rose-900/70"
-                      : "border-rose-700/30 bg-rose-950/40"
-                  }
+                  border-rose-700/30 bg-rose-950/40
                   ${isMine ? "ring-2 ring-cyan-400/60" : ""}
                   hover:bg-rose-900/60 text-rose-300`}
                 title={isMine ? "Your order" : "Click to pre-fill order form"}
@@ -96,9 +86,7 @@ export default function OrderBookDisplay({
                 <span className="tabular-nums text-rose-400 group-hover:text-rose-200">
                   {lvl.qty}
                 </span>
-                {isBest && (
-                  <span className="ml-1 text-[10px] text-cyan-400">Best</span>
-                )}
+                {/* Best label removed */}
                 {isMine && (
                   <span className="ml-1 text-[10px] text-cyan-300">Mine</span>
                 )}
@@ -113,7 +101,7 @@ export default function OrderBookDisplay({
         created. Unmatched orders rest and can be cancelled.
         <br />
         <span className="text-neutral-400">
-          Best = highest YES or lowest NO price. <b>Mine</b> = your order.
+          <b>Mine</b> = your order. Prices are per share (pays ₹10 if correct).
         </span>
       </div>
     </div>

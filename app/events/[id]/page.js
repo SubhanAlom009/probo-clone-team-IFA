@@ -152,38 +152,50 @@ export default function EventDetailPage() {
     };
   }, [orders]);
 
-  if (!event)
-    return <div className="mt-10">{error ? error : "Loading event..."}</div>;
-
-  // --- PROBO-STYLE BEST ASK PRICING ---
-  function getBestAsk(levels) {
-    if (!levels || !levels.length) return null;
-    // levels already sorted (YES desc, NO asc) so for asks we want the lowest price
-    return Math.min(...levels.map((l) => l.price));
-  }
-
-  // YES price derives from best NO ask (lowest NO order price)
-  let yesPrice = null;
-  let noPrice = null;
-  const bestNoAsk = getBestAsk(orderBook.no);
-  if (typeof bestNoAsk === "number") {
-    yesPrice = bestNoAsk;
-    noPrice = Number((10 - yesPrice).toFixed(2));
-  } else {
-    // fallback: infer from YES side (its best ask -> implies NO price, then YES = 10 - NO)
-    const bestYesAsk = getBestAsk(orderBook.yes);
-    if (typeof bestYesAsk === "number") {
-      noPrice = bestYesAsk;
-      yesPrice = Number((10 - noPrice).toFixed(2));
-    } else {
-      // empty book
-      yesPrice = 5;
-      noPrice = 5;
+  // --- OPTION B: LAST TRADE DRIVEN PRICING ---
+  // Price only updates when a trade (bet) occurs. Fallback to book only if NO trades yet.
+  const { yesPrice, noPrice } = useMemo(() => {
+    // bets are stored newest first (query orderBy desc)
+    let lastTradeYesPrice = null;
+    const lastBet = bets[0];
+    if (lastBet && typeof lastBet.price === "number") {
+      // Convert any trade to YES price perspective
+      lastTradeYesPrice =
+        lastBet.side === "yes" ? lastBet.price : 10 - lastBet.price;
     }
-  }
-  // Probabilities (implied)
+
+    // Helper to get lowest ask for a side (YES side orders sorted desc, NO asc)
+    const lowest = (levels) => {
+      if (!levels || !levels.length) return null;
+      return Math.min(...levels.map((l) => l.price));
+    };
+    const bestNoAsk = lowest(orderBook.no); // sets YES directly
+    const bestYesAsk = lowest(orderBook.yes); // implies NO -> YES = 10 - NO
+
+    if (typeof lastTradeYesPrice === "number") {
+      return {
+        yesPrice: lastTradeYesPrice,
+        noPrice: Number((10 - lastTradeYesPrice).toFixed(2)),
+      };
+    }
+    if (typeof bestNoAsk === "number") {
+      return {
+        yesPrice: bestNoAsk,
+        noPrice: Number((10 - bestNoAsk).toFixed(2)),
+      };
+    }
+    if (typeof bestYesAsk === "number") {
+      const impliedYes = Number((10 - bestYesAsk).toFixed(2));
+      return { yesPrice: impliedYes, noPrice: bestYesAsk };
+    }
+    return { yesPrice: 5, noPrice: 5 };
+  }, [bets, orderBook]);
+
   const yesProb = ((yesPrice / 10) * 100).toFixed(1);
   const noProb = ((noPrice / 10) * 100).toFixed(1);
+
+  if (!event)
+    return <div className="mt-10">{error ? error : "Loading event..."}</div>;
 
   return (
     <div className="flex flex-col md:flex-row gap-8 mt-4">

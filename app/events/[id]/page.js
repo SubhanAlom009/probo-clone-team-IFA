@@ -155,13 +155,35 @@ export default function EventDetailPage() {
   if (!event)
     return <div className="mt-10">{error ? error : "Loading event..."}</div>;
 
-  const yes = event.yesStake || 0;
-  const no = event.noStake || 0;
-  const total = yes + no;
-  // Market probability from best YES price (order book)
-  const bestYesPrice = orderBook.yes?.[0]?.price ?? 5;
-  const bestNoPrice = orderBook.no?.[0]?.price ?? 5;
-  const prob = bestYesPrice ? bestYesPrice / 10 : 0.5;
+  // --- PROBO-STYLE BEST ASK PRICING ---
+  function getBestAsk(levels) {
+    if (!levels || !levels.length) return null;
+    // levels already sorted (YES desc, NO asc) so for asks we want the lowest price
+    return Math.min(...levels.map((l) => l.price));
+  }
+
+  // YES price derives from best NO ask (lowest NO order price)
+  let yesPrice = null;
+  let noPrice = null;
+  const bestNoAsk = getBestAsk(orderBook.no);
+  if (typeof bestNoAsk === "number") {
+    yesPrice = bestNoAsk;
+    noPrice = Number((10 - yesPrice).toFixed(2));
+  } else {
+    // fallback: infer from YES side (its best ask -> implies NO price, then YES = 10 - NO)
+    const bestYesAsk = getBestAsk(orderBook.yes);
+    if (typeof bestYesAsk === "number") {
+      noPrice = bestYesAsk;
+      yesPrice = Number((10 - noPrice).toFixed(2));
+    } else {
+      // empty book
+      yesPrice = 5;
+      noPrice = 5;
+    }
+  }
+  // Probabilities (implied)
+  const yesProb = ((yesPrice / 10) * 100).toFixed(1);
+  const noProb = ((noPrice / 10) * 100).toFixed(1);
 
   return (
     <div className="flex flex-col md:flex-row gap-8 mt-4">
@@ -185,9 +207,28 @@ export default function EventDetailPage() {
           <p className="text-base text-neutral-400 whitespace-pre-line leading-relaxed">
             {event.description}
           </p>
+          {/* YES/NO Price Inline Display */}
+          <div className="flex gap-2 mt-4">
+            <div className="flex-1 flex flex-col items-center border-2 border-cyan-500/70 bg-cyan-500/10 rounded-lg p-2">
+              <span className="text-[12px] text-cyan-300 font-semibold">
+                YES
+              </span>
+              <span className="font-mono text-cyan-200 text-base">
+                {typeof yesPrice === "number" ? `₹${yesPrice}` : "--"}
+              </span>
+            </div>
+            <div className="flex-1 flex flex-col items-center border-2 border-rose-500/70 bg-rose-500/10 rounded-lg p-2">
+              <span className="text-[12px] text-rose-300 font-semibold">
+                NO
+              </span>
+              <span className="font-mono text-rose-200 text-base">
+                {typeof noPrice === "number" ? `₹${noPrice}` : "--"}
+              </span>
+            </div>
+          </div>
         </div>
         {/* --- Event Analytics Panel --- */}
-        <EventAnalytics eventId={id} />
+        <EventAnalytics eventId={id} yesPrice={yesPrice} noPrice={noPrice} />
         {/* Order Book (levels) */}
         <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 shadow-lg">
           <OrderBookDisplay
@@ -244,7 +285,7 @@ export default function EventDetailPage() {
               <BetForm
                 eventId={event.id}
                 onBetPlaced={handleBetPlaced}
-                market={{ yesStake: yes, noStake: no, prob }}
+                market={{ yesPrice, noPrice, yesProb, noProb }}
                 orderBook={orderBook}
                 selectedOrder={selectedOrder}
                 onClearSelected={() => setSelectedOrder(null)}

@@ -116,7 +116,52 @@ function FeaturedSection({ events, loading }) {
                 className="h-40 rounded-xl bg-neutral-800 border border-neutral-700 animate-pulse"
               />
             ))}
-          {!loading && events.map((ev) => <EventCard key={ev.id} ev={ev} />)}
+          {!loading &&
+            events.map((ev) => (
+              <Link key={ev.id} href={`/events/${ev.id}`}>
+                <div className="bg-neutral-900 rounded-lg shadow-md p-5 flex flex-col justify-between cursor-pointer hover:shadow-lg transition-shadow min-h-[170px] border border-neutral-800">
+                  <div className="flex flex-col mb-4">
+                    <h2 className="font-bold text-lg mb-2 text-white truncate">
+                      {ev.title}
+                    </h2>
+                    <p
+                      className="text-[#a0a0a0] text-sm truncate"
+                      title={ev.description || "No description available."}
+                    >
+                      {ev.description && ev.description.length > 80
+                        ? ev.description.slice(0, 80) + "..."
+                        : ev.description || "No description available."}
+                    </p>
+                  </div>
+                  <div className="flex gap-2 mt-auto items-end">
+                    <div className="flex-1 flex flex-col items-center border-2 border-cyan-500/70 bg-cyan-500/10 rounded-lg p-2">
+                      <span className="text-[12px] text-cyan-300 font-semibold">
+                        YES
+                      </span>
+                      <span className="font-mono text-cyan-200 text-base">
+                        ₹
+                        {ev.currentYesPrice !== undefined &&
+                        ev.currentYesPrice !== null
+                          ? ev.currentYesPrice
+                          : 5}
+                      </span>
+                    </div>
+                    <div className="flex-1 flex flex-col items-center border-2 border-rose-500/70 bg-rose-500/10 rounded-lg p-2">
+                      <span className="text-[12px] text-rose-300 font-semibold">
+                        NO
+                      </span>
+                      <span className="font-mono text-rose-200 text-base">
+                        ₹
+                        {ev.currentNoPrice !== undefined &&
+                        ev.currentNoPrice !== null
+                          ? ev.currentNoPrice
+                          : 5}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </Link>
+            ))}
           {!loading && events.length === 0 && (
             <div className="col-span-full text-sm text-neutral-500">
               No events yet. Seed some markets to get started.

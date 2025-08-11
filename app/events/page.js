@@ -2,22 +2,114 @@
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { db } from "@/lib/firebase";
-import { collection, onSnapshot, query, orderBy } from "firebase/firestore";
+import {
+  collection,
+  onSnapshot,
+  query,
+  orderBy,
+  where,
+  getDocs,
+} from "firebase/firestore";
 import { useToast } from "@/app/components/ToastProvider";
 import EventCard from "@/app/components/EventCard";
 
 export default function EventsPage() {
   const [events, setEvents] = useState(null);
+  const [marketData, setMarketData] = useState({}); // { [eventId]: { bestYes, bestNo, lastMatched } }
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
   const [sort, setSort] = useState("new");
   const { push } = useToast();
+
   useEffect(() => {
     const qRef = query(collection(db, "events"), orderBy("createdAt", "desc"));
     const unsub = onSnapshot(
       qRef,
-      (snap) => {
-        setEvents(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      async (snap) => {
+        const evs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        setEvents(evs);
+        // Fetch best prices (Probo-style) and last matched for each event
+        const data = {};
+        await Promise.all(
+          evs.map(async (ev) => {
+            // Collect open YES orders (for fallback)
+            const yesQ = query(
+              collection(db, "orders"),
+              where("eventId", "==", ev.id),
+              where("side", "==", "yes"),
+              where("status", "==", "open")
+            );
+            const yesSnap = await getDocs(yesQ);
+            let bestYesAsk = null; // lowest YES order price (used only if no NO orders)
+            yesSnap.forEach((d) => {
+              const o = d.data();
+              if (typeof o.price === "number") {
+                if (bestYesAsk === null || o.price < bestYesAsk)
+                  bestYesAsk = o.price;
+              }
+            });
+            // Last matched price
+            const betsQ = query(
+              collection(db, "bets"),
+              where("eventId", "==", ev.id),
+              orderBy("createdAt", "desc")
+            );
+            const betsSnap = await getDocs(betsQ);
+            let lastMatched = null;
+            let lastYesBet = null;
+            betsSnap.forEach((d, i) => {
+              const b = d.data();
+              if (i === 0) lastMatched = b.price || null;
+              if (
+                !lastYesBet &&
+                b.side === "yes" &&
+                typeof b.price === "number"
+              )
+                lastYesBet = b;
+            });
+            // NO orders determine YES price (best NO ask sets YES price)
+            const noQ = query(
+              collection(db, "orders"),
+              where("eventId", "==", ev.id),
+              where("side", "==", "no"),
+              where("status", "==", "open")
+            );
+            const noSnap = await getDocs(noQ);
+            let bestNoAsk = null; // lowest NO order price
+            noSnap.forEach((d) => {
+              const o = d.data();
+              if (typeof o.price === "number") {
+                if (bestNoAsk === null || o.price < bestNoAsk)
+                  bestNoAsk = o.price;
+              }
+            });
+
+            let currentYesPrice = null;
+            let currentNoPrice = null;
+            if (bestNoAsk !== null) {
+              currentYesPrice = bestNoAsk;
+              currentNoPrice = Number((10 - currentYesPrice).toFixed(2));
+            } else if (bestYesAsk !== null) {
+              currentNoPrice = bestYesAsk;
+              currentYesPrice = Number((10 - currentNoPrice).toFixed(2));
+            } else {
+              // Fall back to last matched YES if exists
+              if (lastYesBet && typeof lastYesBet.price === "number") {
+                currentYesPrice = lastYesBet.price;
+                currentNoPrice = Number((10 - currentYesPrice).toFixed(2));
+              } else if (typeof lastMatched === "number") {
+                currentYesPrice = lastMatched;
+                currentNoPrice = Number((10 - currentYesPrice).toFixed(2));
+              } else {
+                currentYesPrice = 5;
+                currentNoPrice = 5;
+              }
+            }
+
+            data[ev.id] = { currentYesPrice, currentNoPrice, lastMatched };
+          })
+        );
+        setMarketData(data);
       },
       (err) => {
         push(err.message, "error");
@@ -37,16 +129,15 @@ export default function EventsPage() {
     if (sort === "liquidity") {
       list.sort((a, b) => (b.totalStake || 0) - (a.totalStake || 0));
     } else if (sort === "yesprob") {
-      const p = (ev) => {
-        const y = ev.yesStake || 0;
-        const n = ev.noStake || 0;
-        const t = y + n;
-        return t ? y / t : 0.5;
-      };
-      list.sort((a, b) => p(b) - p(a));
+      // Sort by best YES price (higher = more likely)
+      list.sort((a, b) => {
+        const ay = marketData[a.id]?.bestYes ?? 0;
+        const by = marketData[b.id]?.bestYes ?? 0;
+        return by - ay;
+      });
     } // default 'new' already ordered by createdAt desc
     return list;
-  }, [events, search, status, sort]);
+  }, [events, search, status, sort, marketData]);
 
   const openCount = events?.filter((e) => e.status === "open").length || 0;
   const totalVol = events?.reduce((s, e) => s + (e.totalStake || 0), 0) || 0;
@@ -85,7 +176,7 @@ export default function EventsPage() {
           >
             <option value="new">Newest</option>
             <option value="liquidity">Liquidity</option>
-            <option value="yesprob">Yes %</option>
+            <option value="yesprob">Best YES Price</option>
           </select>
         </div>
       </div>
@@ -112,7 +203,7 @@ export default function EventsPage() {
       {filtered && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
           {filtered.map((ev) => (
-            <EventCard key={ev.id} ev={ev} />
+            <EventCard key={ev.id} ev={{ ...ev, ...marketData[ev.id] }} />
           ))}
           {!filtered.length && (
             <div className="text-neutral-500">No markets found.</div>

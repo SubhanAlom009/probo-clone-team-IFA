@@ -47,22 +47,22 @@ export default function Home() {
 
 function Hero({ user }) {
   return (
-    <section className="flex flex-col justify-center pt-24 md:pt-32 pb-20 bg-neutral-950 border-b border-neutral-900">
-      <div className="mx-auto max-w-4xl px-4 text-center">
+    <section className="flex flex-col justify-center pt-20 sm:pt-24 md:pt-32 pb-16 sm:pb-20 bg-neutral-950 border-b border-neutral-900">
+      <div className="mx-auto max-w-4xl px-4 sm:px-6 text-center">
         <h1
-          className={`${displayFont.className} text-5xl md:text-6xl font-extrabold tracking-tight leading-tight text-white mb-4`}
+          className={`${displayFont.className} text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight leading-tight text-white mb-4`}
         >
           Predict the Future.{" "}
           <span className="inline-block text-cyan-400">Win Big.</span>
         </h1>
-        <p className="mt-4 max-w-2xl mx-auto text-lg md:text-xl text-neutral-300 leading-relaxed font-medium">
+        <p className="mt-4 max-w-2xl mx-auto text-base sm:text-lg md:text-xl text-neutral-300 leading-relaxed font-medium px-2">
           Stake virtual coins on real outcomes and learn from collective
           intelligence in live markets.
         </p>
-        <div className="mt-8 flex flex-wrap gap-4 justify-center items-center">
+        <div className="mt-6 sm:mt-8 flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-center max-w-sm sm:max-w-none mx-auto">
           <Link
             href="/events"
-            className="inline-flex items-center rounded-full px-8 py-3 text-sm font-semibold text-white bg-[#0a3d62] hover:bg-[#0891b2] focus:outline-none focus:ring-2 focus:ring-cyan-500 transition shadow-md"
+            className="w-full sm:w-auto inline-flex items-center justify-center rounded-full px-6 sm:px-8 py-3 text-sm font-semibold text-white bg-[#0a3d62] hover:bg-[#0891b2] focus:outline-none focus:ring-2 focus:ring-cyan-500 transition shadow-md"
           >
             Get Started
             <svg
@@ -82,7 +82,7 @@ function Hero({ user }) {
           {!user && (
             <Link
               href="/auth/signup"
-              className="inline-flex items-center rounded-full px-7 py-3 text-sm font-semibold border border-neutral-700 text-white hover:bg-neutral-900 transition"
+              className="w-full sm:w-auto inline-flex items-center justify-center rounded-full px-6 sm:px-7 py-3 text-sm font-semibold border border-neutral-700 text-white hover:bg-neutral-900 transition"
             >
               Join Now
             </Link>
@@ -95,10 +95,10 @@ function Hero({ user }) {
 
 function FeaturedSection({ events, loading }) {
   return (
-    <section className="relative z-10 px-4 pb-20 -mt-8">
+    <section className="relative z-10 px-4 sm:px-6 pb-16 sm:pb-20 -mt-6 sm:-mt-8">
       <div className="max-w-6xl mx-auto">
-        <div className="flex items-end justify-between mb-8">
-          <h2 className="text-2xl font-semibold tracking-tight text-white">
+        <div className="flex items-end justify-between mb-6 sm:mb-8">
+          <h2 className="text-xl sm:text-2xl font-semibold tracking-tight text-white">
             Featured Events
           </h2>
           <Link
@@ -108,37 +108,37 @@ function FeaturedSection({ events, loading }) {
             View All →
           </Link>
         </div>
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           {loading &&
             Array.from({ length: 6 }).map((_, i) => (
               <div
                 key={i}
-                className="h-40 rounded-xl bg-neutral-800 border border-neutral-700 animate-pulse"
+                className="h-40 sm:h-44 rounded-xl bg-neutral-800 border border-neutral-700 animate-pulse"
               />
             ))}
           {!loading &&
             events.map((ev) => (
               <Link key={ev.id} href={`/events/${ev.id}`}>
-                <div className="bg-neutral-900 rounded-lg shadow-md p-5 flex flex-col justify-between cursor-pointer hover:shadow-lg transition-shadow min-h-[170px] border border-neutral-800">
-                  <div className="flex flex-col mb-4">
-                    <h2 className="font-bold text-lg mb-2 text-white truncate">
+                <div className="bg-neutral-900 rounded-lg shadow-md p-4 sm:p-5 flex flex-col justify-between cursor-pointer hover:shadow-lg transition-shadow min-h-[160px] sm:min-h-[170px] border border-neutral-800">
+                  <div className="flex flex-col mb-3 sm:mb-4">
+                    <h2 className="font-bold text-base sm:text-lg mb-2 text-white line-clamp-2">
                       {ev.title}
                     </h2>
                     <p
-                      className="text-[#a0a0a0] text-sm truncate"
+                      className="text-[#a0a0a0] text-xs sm:text-sm line-clamp-2"
                       title={ev.description || "No description available."}
                     >
-                      {ev.description && ev.description.length > 80
-                        ? ev.description.slice(0, 80) + "..."
+                      {ev.description && ev.description.length > 60
+                        ? ev.description.slice(0, 60) + "..."
                         : ev.description || "No description available."}
                     </p>
                   </div>
                   <div className="flex gap-2 mt-auto items-end">
                     <div className="flex-1 flex flex-col items-center border-2 border-cyan-500/70 bg-cyan-500/10 rounded-lg p-2">
-                      <span className="text-[12px] text-cyan-300 font-semibold">
+                      <span className="text-[10px] sm:text-[12px] text-cyan-300 font-semibold">
                         YES
                       </span>
-                      <span className="font-mono text-cyan-200 text-base">
+                      <span className="font-mono text-cyan-200 text-sm sm:text-base">
                         ₹
                         {ev.currentYesPrice !== undefined &&
                         ev.currentYesPrice !== null
@@ -147,10 +147,10 @@ function FeaturedSection({ events, loading }) {
                       </span>
                     </div>
                     <div className="flex-1 flex flex-col items-center border-2 border-rose-500/70 bg-rose-500/10 rounded-lg p-2">
-                      <span className="text-[12px] text-rose-300 font-semibold">
+                      <span className="text-[10px] sm:text-[12px] text-rose-300 font-semibold">
                         NO
                       </span>
-                      <span className="font-mono text-rose-200 text-base">
+                      <span className="font-mono text-rose-200 text-sm sm:text-base">
                         ₹
                         {ev.currentNoPrice !== undefined &&
                         ev.currentNoPrice !== null
@@ -163,7 +163,7 @@ function FeaturedSection({ events, loading }) {
               </Link>
             ))}
           {!loading && events.length === 0 && (
-            <div className="col-span-full text-sm text-neutral-500">
+            <div className="col-span-full text-sm text-neutral-500 text-center py-8">
               No events yet. Seed some markets to get started.
             </div>
           )}

@@ -23,9 +23,34 @@ const palette = {
 export function ToastProvider({ children }) {
   const [toasts, setToasts] = useState([]);
 
-  const push = useCallback((msg, type = "info", ttl = 4200) => {
+  // Flexible push: supports push("Message", "success") or push({ message: "Message", type: "success" })
+  const push = useCallback((msgOrObj, type = "info", ttl = 4200) => {
+    let message = msgOrObj;
+    let toastType = type;
+    let customTtl = ttl;
+    if (msgOrObj && typeof msgOrObj === "object" && !Array.isArray(msgOrObj)) {
+      message = msgOrObj.message || msgOrObj.msg || "";
+      toastType = msgOrObj.type || type;
+      customTtl = msgOrObj.ttl || ttl;
+    }
+    if (typeof message !== "string") {
+      try {
+        message = JSON.stringify(message);
+      } catch {
+        message = String(message);
+      }
+    }
     const id = Math.random().toString(36).slice(2);
-    setToasts((t) => [...t, { id, msg, type, ttl, created: Date.now() }]);
+    setToasts((t) => [
+      ...t,
+      {
+        id,
+        msg: message,
+        type: toastType,
+        ttl: customTtl,
+        created: Date.now(),
+      },
+    ]);
   }, []);
 
   const dismiss = useCallback(

@@ -3,8 +3,8 @@ import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { db } from "@/lib/firebase";
 import { collection, onSnapshot, query, orderBy } from "firebase/firestore";
-import { useToast } from "@/components/ToastProvider";
-import EventCard from "@/components/EventCard";
+import { useToast } from "@/app/components/ToastProvider";
+import EventCard from "@/app/components/EventCard";
 
 export default function EventsPage() {
   const [events, setEvents] = useState(null);

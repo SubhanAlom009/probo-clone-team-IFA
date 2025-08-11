@@ -10,6 +10,11 @@ import {
   CartesianGrid,
   Brush,
   ReferenceLine,
+  BarChart,
+  Bar,
+  ComposedChart,
+  Scatter,
+  Cell,
 } from "recharts";
 
 /**
@@ -22,7 +27,7 @@ export default function MarketTimelineChart({ data, height = 260 }) {
   const [mode, setMode] = useState("price"); // 'price' | 'prob'
   const [side, setSide] = useState("yes"); // 'yes' | 'no'
 
-  // Build chart data for both sides
+  // Build chart data for both sides, include volume
   const chartData = useMemo(() => {
     if (!data) return [];
     return data.map((d) => {
@@ -38,7 +43,9 @@ export default function MarketTimelineChart({ data, height = 260 }) {
         noPrice = Number((10 - d.yesPrice).toFixed(2));
         noProb = Number((100 - yesProb).toFixed(2));
       }
-      return { t, ts, yesPrice, yesProb, noPrice, noProb };
+      // Volume: use d.quantity if present, else 1
+      const volume = Number(d.quantity) || 1;
+      return { t, ts, yesPrice, yesProb, noPrice, noProb, volume };
     });
   }, [data]);
 
@@ -129,9 +136,9 @@ export default function MarketTimelineChart({ data, height = 260 }) {
       </div>
       <div style={{ width: "100%", height }}>
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart
+          <ComposedChart
             data={chartData}
-            margin={{ top: 10, right: 15, left: 0, bottom: 10 }}
+            margin={{ top: 10, right: 15, left: 0, bottom: 30 }}
           >
             <CartesianGrid strokeDasharray="3 3" stroke="#222" />
             <XAxis
@@ -141,11 +148,29 @@ export default function MarketTimelineChart({ data, height = 260 }) {
               minTickGap={30}
             />
             <YAxis
+              yAxisId="left"
               domain={domainY}
               tick={{ fill: "#888", fontSize: 11 }}
               tickFormatter={(v) =>
                 mode === "price" ? `₹${v}` : `${v.toFixed ? v.toFixed(0) : v}%`
               }
+            />
+            <YAxis
+              yAxisId="right"
+              orientation="right"
+              allowDecimals={false}
+              tick={{ fill: "#888", fontSize: 10 }}
+              width={40}
+              dataKey="volume"
+              axisLine={false}
+              tickLine={false}
+              label={{
+                value: "Volume",
+                angle: -90,
+                position: "insideRight",
+                fill: "#888",
+                fontSize: 10,
+              }}
             />
             <Tooltip
               labelFormatter={(label) => {
@@ -170,6 +195,9 @@ export default function MarketTimelineChart({ data, height = 260 }) {
                       : `${side === "yes" ? "YES" : "NO"} Probability`,
                   ];
                 }
+                if (name === "volume") {
+                  return [value, "Matched Volume"];
+                }
                 return [value, name];
               }}
             />
@@ -178,7 +206,16 @@ export default function MarketTimelineChart({ data, height = 260 }) {
               stroke="#444"
               strokeDasharray="4 3"
             />
+            <Bar
+              yAxisId="right"
+              dataKey="volume"
+              barSize={12}
+              fill="#6366f1"
+              opacity={0.25}
+              name="Matched Volume"
+            />
             <Line
+              yAxisId="left"
               type="monotone"
               dataKey={
                 mode === "price"
@@ -199,6 +236,23 @@ export default function MarketTimelineChart({ data, height = 260 }) {
                   : `${side === "yes" ? "YES" : "NO"} Probability`
               }
             />
+            <Scatter
+              yAxisId="left"
+              dataKey={
+                mode === "price"
+                  ? side === "yes"
+                    ? "yesPrice"
+                    : "noPrice"
+                  : side === "yes"
+                  ? "yesProb"
+                  : "noProb"
+              }
+              fill={side === "yes" ? "#0ea5e9" : "#f43f5e"}
+              name="Trade"
+              shape="circle"
+              opacity={0.7}
+              isAnimationActive={false}
+            />
             <Brush
               dataKey="t"
               travellerWidth={8}
@@ -206,7 +260,7 @@ export default function MarketTimelineChart({ data, height = 260 }) {
               stroke="#444"
               tickFormatter={formatTime}
             />
-          </LineChart>
+          </ComposedChart>
         </ResponsiveContainer>
       </div>
       {chartData.length === 0 && (

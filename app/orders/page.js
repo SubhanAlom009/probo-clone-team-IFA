@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { auth } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
-import MyOrders from "@/components/MyOrders";
+import MyOrders from "@/app/components/MyOrders";
 
 export default function MyOrdersPage() {
   const [user, setUser] = useState(null);

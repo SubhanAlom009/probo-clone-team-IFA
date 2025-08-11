@@ -2,11 +2,12 @@
 import { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import BetForm from "@/components/BetForm";
-import MyOrders from "@/components/MyOrders";
+import BetForm from "@/app/components/BetForm";
+import MyOrders from "@/app/components/MyOrders";
 // Replaced depth (order book) chart with timeline chart
-import MarketTimelineChart from "@/components/MarketTimelineChart";
-import OrderBookDisplay from "@/components/OrderBookDisplay";
+import MarketTimelineChart from "@/app/components/MarketTimelineChart";
+import OrderBookDisplay from "@/app/components/OrderBookDisplay";
+import EventAnalytics from "@/app/components/EventAnalytics";
 // import { computeSmoothedProb } from "@/lib/marketMath"; // no longer used with order-book probability
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
@@ -18,7 +19,7 @@ import {
   where,
   orderBy,
 } from "firebase/firestore";
-import { useToast } from "@/components/ToastProvider";
+import { useToast } from "@/app/components/ToastProvider";
 
 export default function EventDetailPage() {
   // Ensure hooks are called unconditionally and in the correct order
@@ -49,8 +50,6 @@ export default function EventDetailPage() {
       } catch {}
     })();
   }, [user]);
-
-  // ...existing code...
 
   // (Removed old ratio-over-time chart data calculation; now relying on order book visualizations only)
 
@@ -187,6 +186,8 @@ export default function EventDetailPage() {
             {event.description}
           </p>
         </div>
+        {/* --- Event Analytics Panel --- */}
+        <EventAnalytics eventId={id} />
         {/* Order Book (levels) */}
         <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 shadow-lg">
           <OrderBookDisplay

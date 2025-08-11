@@ -29,9 +29,7 @@ export default function ProfilePage() {
         method: "POST",
         body: JSON.stringify({ amount: n }),
       });
-      // Refresh profile after recharge
-      const p = await apiFetch("/api/users/me");
-      setProfile(p);
+      // No need to manually refresh profile; Firestore listener will update balance in real time
       alert("Balance recharged!");
     } catch (e) {
       alert(e.message || "Recharge failed");
@@ -136,18 +134,20 @@ export default function ProfilePage() {
   const isAdmin = profile?.role === "admin";
   return (
     <div className="space-y-10">
-      <header className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+      <header className="flex flex-col gap-4">
         <div>
-          <h1 className="text-4xl font-extrabold tracking-tight">Dashboard</h1>
-          <p className="text-neutral-400 text-base mt-1">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight">
+            Dashboard
+          </h1>
+          <p className="text-neutral-400 text-sm sm:text-base mt-1">
             Welcome, {profile?.displayName || user.email}
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="bg-neutral-900 border border-neutral-700 px-5 py-3 rounded-xl text-base font-semibold flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="bg-neutral-900 border border-neutral-700 px-3 sm:px-5 py-2 sm:py-3 rounded-xl text-sm sm:text-base font-semibold flex items-center gap-2">
             Balance:{" "}
             <span className="text-cyan-400 font-semibold">
-              {profile?.balance}
+              ₹{profile?.balance}
             </span>
             <button
               onClick={handleRecharge}
@@ -157,22 +157,24 @@ export default function ProfilePage() {
               Recharge
             </button>
           </div>
-          <span className="px-3 py-2 rounded bg-indigo-600/20 border border-indigo-500/30 text-indigo-300 text-xs font-semibold uppercase tracking-wide">
-            Admin
-          </span>
-          <Link
-            href="/admin/events/new"
-            className="ui-btn px-4 py-2 text-xs font-semibold"
-          >
-            Create Event
-          </Link>
+          <div className="flex items-center gap-2 sm:gap-3">
+            <span className="px-2 sm:px-3 py-1 sm:py-2 rounded bg-indigo-600/20 border border-indigo-500/30 text-indigo-300 text-xs font-semibold uppercase tracking-wide">
+              Admin
+            </span>
+            <Link
+              href="/admin/events/new"
+              className="ui-btn px-3 sm:px-4 py-2 text-xs font-semibold"
+            >
+              Create Event
+            </Link>
+          </div>
         </div>
       </header>
 
-      <section className="grid gap-6 sm:grid-cols-2 lg:grid-cols-6">
+      <section className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-6">
         <MetricCard
           label="Total Staked"
-          value={metrics ? metrics.totalStake : "-"}
+          value={metrics ? `₹${metrics.totalStake}` : "-"}
         />
         <MetricCard
           label="Resolved Bets"
@@ -184,27 +186,27 @@ export default function ProfilePage() {
         />
         <MetricCard
           label="Profit"
-          value={metrics ? metrics.profit.toFixed(2) : "-"}
+          value={metrics ? `₹${metrics.profit.toFixed(2)}` : "-"}
           positive={metrics?.profit >= 0}
         />
         <MetricCard label="Open Orders" value={openOrders.length} positive />
         <MetricCard
           label="Locked Value"
-          value={lockedValue.toFixed(2)}
+          value={`₹${lockedValue.toFixed(2)}`}
           positive={lockedValue === 0}
         />
       </section>
       <div>
-        <div className="flex border-b border-neutral-800 mb-6 text-sm gap-2">
+        <div className="flex border-b border-neutral-800 mb-6 text-xs sm:text-sm gap-1 sm:gap-2 overflow-x-auto">
           {[
             { key: "bets", label: "Bets" },
-            { key: "orders", label: `Open Orders (${openOrders.length})` },
+            { key: "orders", label: `Orders (${openOrders.length})` },
             { key: "ledger", label: "Ledger" },
           ].map((t) => (
             <button
               key={t.key}
               onClick={() => setActiveTab(t.key)}
-              className={`px-4 py-2 -mb-px border-b-2 transition-colors rounded-t ${
+              className={`px-3 sm:px-4 py-2 -mb-px border-b-2 transition-colors rounded-t whitespace-nowrap ${
                 activeTab === t.key
                   ? "border-cyan-500 text-cyan-300"
                   : "border-transparent hover:text-neutral-200 text-neutral-500"
@@ -215,14 +217,14 @@ export default function ProfilePage() {
           ))}
         </div>
         {activeTab === "bets" && (
-          <div className="space-y-3 text-sm">
+          <div className="space-y-3 text-xs sm:text-sm">
             {bets.map((b) => (
               <div
                 key={b.id}
-                className="grid grid-cols-6 items-center gap-3 bg-neutral-900 border border-neutral-800 rounded-lg p-3"
+                className="flex flex-col sm:grid sm:grid-cols-6 sm:items-center gap-2 sm:gap-3 bg-neutral-900 border border-neutral-800 rounded-lg p-3"
               >
                 <span
-                  className="col-span-2 font-semibold text-white truncate"
+                  className="sm:col-span-2 font-semibold text-white truncate"
                   title={eventTitles[b.eventId] || b.eventId}
                 >
                   {eventTitles[b.eventId] ? (
@@ -236,37 +238,49 @@ export default function ProfilePage() {
                     <span className="text-neutral-500">(Event)</span>
                   )}
                 </span>
-                <span
-                  className={`col-span-1 capitalize font-medium ${
-                    b.outcome && b.outcome === b.side ? "text-lime-400" : ""
-                  }`}
-                >
-                  {b.side}
-                </span>
-                <span className="col-span-1">{b.stake}</span>
-                <span className="col-span-1 text-neutral-500">
-                  {b.oddsSnapshot
-                    ? (b.oddsSnapshot * 100).toFixed(1) + "%"
-                    : ""}
-                </span>
-                <span
-                  className={`col-span-1 text-xs ${
-                    b.settled
+                <div className="flex flex-wrap gap-2 sm:contents">
+                  <span
+                    className={`sm:col-span-1 capitalize font-medium px-2 py-1 text-xs rounded ${
+                      b.outcome && b.outcome === b.side
+                        ? "bg-lime-900 text-lime-400 border border-lime-700"
+                        : "bg-neutral-800 text-neutral-300"
+                    }`}
+                  >
+                    {b.side}
+                  </span>
+                  <span className="sm:col-span-1 text-neutral-300">
+                    ₹{b.stake}
+                  </span>
+                  <span className="sm:col-span-1 text-neutral-500 text-xs">
+                    {b.oddsSnapshot
+                      ? (b.oddsSnapshot * 100).toFixed(1) + "%"
+                      : ""}
+                  </span>
+                  <span
+                    className={`sm:col-span-1 text-xs px-2 py-1 rounded ${
+                      b.settled
+                        ? b.outcome === b.side
+                          ? "bg-lime-900 text-lime-400 border border-lime-700"
+                          : "bg-red-900 text-red-400 border border-red-700"
+                        : "bg-neutral-800 text-neutral-500"
+                    }`}
+                  >
+                    {b.settled
                       ? b.outcome === b.side
-                        ? "text-lime-400"
-                        : "text-red-400"
-                      : "text-neutral-500"
-                  }`}
-                >
-                  {b.settled ? (b.outcome === b.side ? "Won" : "Lost") : "Open"}
-                </span>
-                <span className="col-span-1 text-right text-cyan-300">
-                  {b.payout ? b.payout.toFixed(2) : ""}
-                </span>
+                        ? "Won"
+                        : "Lost"
+                      : "Open"}
+                  </span>
+                  <span className="sm:col-span-1 sm:text-right text-cyan-300 font-mono">
+                    {b.payout ? `₹${b.payout.toFixed(2)}` : "-"}
+                  </span>
+                </div>
               </div>
             ))}
             {!bets.length && (
-              <div className="text-neutral-500">No bets yet.</div>
+              <div className="text-neutral-500 text-center py-8">
+                No bets yet.
+              </div>
             )}
           </div>
         )}

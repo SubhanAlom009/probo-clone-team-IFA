@@ -38,8 +38,11 @@ export default function OrderBookDisplay({
             <div className="text-neutral-600 text-xs py-2">No YES orders</div>
           )}
           {yesLevels.map((lvl, i) => {
-            const isBest = false; // suppress best highlighting
             const isMine = userId && lvl.userId === userId;
+            // Highlight if there is a NO order at (10-lvl.price)
+            const hasComplement = noLevels.some(
+              (nl) => Math.abs(nl.price - (10 - lvl.price)) < 0.0001
+            );
             return (
               <button
                 key={`yes-${i}`}
@@ -48,16 +51,28 @@ export default function OrderBookDisplay({
                 className={`w-full group flex items-center justify-between gap-2 rounded-md border px-2 py-1 text-xs font-medium transition
                   border-emerald-700/30 bg-emerald-950/40
                   ${isMine ? "ring-2 ring-cyan-400/60" : ""}
+                  ${hasComplement ? "border-yellow-400 bg-yellow-900/30" : ""}
                   hover:bg-emerald-900/60 text-emerald-300`}
-                title={isMine ? "Your order" : "Click to pre-fill order form"}
+                title={
+                  isMine
+                    ? "Your order"
+                    : hasComplement
+                    ? "Matching NO order exists at ₹" +
+                      (10 - lvl.price).toFixed(2)
+                    : "Click to pre-fill order form"
+                }
               >
                 <span className="font-mono">₹{lvl.price}</span>
                 <span className="tabular-nums text-emerald-400 group-hover:text-emerald-200">
                   {lvl.qty}
                 </span>
-                {/* Best label removed */}
                 {isMine && (
                   <span className="ml-1 text-[10px] text-cyan-300">Mine</span>
+                )}
+                {hasComplement && (
+                  <span className="ml-1 text-[10px] text-yellow-300">
+                    Matchable
+                  </span>
                 )}
               </button>
             );
@@ -69,8 +84,11 @@ export default function OrderBookDisplay({
             <div className="text-neutral-600 text-xs py-2">No NO orders</div>
           )}
           {noLevels.map((lvl, i) => {
-            const isBest = false; // suppress best highlighting
             const isMine = userId && lvl.userId === userId;
+            // Highlight if there is a YES order at (10-lvl.price)
+            const hasComplement = yesLevels.some(
+              (yl) => Math.abs(yl.price - (10 - lvl.price)) < 0.0001
+            );
             return (
               <button
                 key={`no-${i}`}
@@ -79,16 +97,28 @@ export default function OrderBookDisplay({
                 className={`w-full group flex items-center justify-between gap-2 rounded-md border px-2 py-1 text-xs font-medium transition
                   border-rose-700/30 bg-rose-950/40
                   ${isMine ? "ring-2 ring-cyan-400/60" : ""}
+                  ${hasComplement ? "border-yellow-400 bg-yellow-900/30" : ""}
                   hover:bg-rose-900/60 text-rose-300`}
-                title={isMine ? "Your order" : "Click to pre-fill order form"}
+                title={
+                  isMine
+                    ? "Your order"
+                    : hasComplement
+                    ? "Matching YES order exists at ₹" +
+                      (10 - lvl.price).toFixed(2)
+                    : "Click to pre-fill order form"
+                }
               >
                 <span className="font-mono">₹{lvl.price}</span>
                 <span className="tabular-nums text-rose-400 group-hover:text-rose-200">
                   {lvl.qty}
                 </span>
-                {/* Best label removed */}
                 {isMine && (
                   <span className="ml-1 text-[10px] text-cyan-300">Mine</span>
+                )}
+                {hasComplement && (
+                  <span className="ml-1 text-[10px] text-yellow-300">
+                    Matchable
+                  </span>
                 )}
               </button>
             );
@@ -96,12 +126,13 @@ export default function OrderBookDisplay({
         </div>
       </div>
       <div className="mt-2 text-[10px] leading-relaxed text-neutral-500">
-        <b>Order Book Model:</b> Each row is a limit order to buy YES or NO at a
-        price. When an opposite order matches at the same price, a bet is
-        created. Unmatched orders rest and can be cancelled.
+        <b>Probo-style Matching:</b> YES at ₹P only matches NO at ₹(10−P).
+        Complementary prices are highlighted. Orders at the same price will
+        never match.
         <br />
         <span className="text-neutral-400">
-          <b>Mine</b> = your order. Prices are per share (pays ₹10 if correct).
+          <b>Mine</b> = your order. <b>Matchable</b> = a complementary order
+          exists and can match if you place the opposite side.
         </span>
       </div>
     </div>

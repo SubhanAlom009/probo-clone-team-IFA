@@ -45,15 +45,14 @@ export default function BetForm({
   const [warn, setWarn] = useState(null);
   const [balance, setBalance] = useState(null);
 
-  // Fetch user balance
+  // Listen for user balance in real time
   useEffect(() => {
     if (!userId) return;
-    (async () => {
-      try {
-        const snap = await getDoc(doc(db, "users", userId));
-        if (snap.exists()) setBalance(snap.data().balance ?? 0);
-      } catch (_) {}
-    })();
+    const userRef = doc(db, "users", userId);
+    const unsub = onSnapshot(userRef, (snap) => {
+      if (snap.exists()) setBalance(snap.data().balance ?? 0);
+    });
+    return () => unsub();
   }, [userId]);
 
   // Listen for event resolution and show win/loss toast
@@ -154,7 +153,7 @@ export default function BetForm({
 
   const normalizedPrice = useMemo(() => {
     const p = Number(price) || 0;
-    return Math.min(10, Math.max(1, p));
+    return Math.min(9.5, Math.max(0.5, p));
   }, [price]);
 
   const totalCost = useMemo(() => {
@@ -203,8 +202,8 @@ export default function BetForm({
     setWarn(null);
     const p = Number(normalizedPrice);
     const q = Number(quantity);
-    if (!Number.isFinite(p) || p < 1 || p > 10)
-      return setError("Price must be between 1 and 10");
+    if (!Number.isFinite(p) || p < 0.5 || p > 9.5)
+      return setError("Price must be between 0.5 and 9.5");
     if (!Number.isFinite(q) || q <= 0) return setError("Invalid quantity");
     if (balance !== null && Number(lockedAmount) > balance)
       return setError("Insufficient balance");
@@ -250,9 +249,9 @@ export default function BetForm({
         </div>
       </div>
       <div className="bg-neutral-800 border border-neutral-700 rounded-md p-3 text-xs text-neutral-300 mb-2">
-        <b>Order Book:</b> Enter a price (₹1-₹10). A bet forms only when an
-        opposite order matches at the same price. Unmatched quantity rests and
-        keeps funds locked.
+        <b>Order Book:</b> Enter a price (<b>₹0.5–₹9.5</b>).{" "}
+        <b>YES at ₹P only matches NO at ₹(10−P).</b> Unmatched quantity rests
+        and keeps funds locked.
       </div>
       <form
         onSubmit={submit}
@@ -280,13 +279,13 @@ export default function BetForm({
           <div className="flex-1 relative">
             <input
               type="number"
-              min="1"
-              max="10"
+              min="0.5"
+              max="9.5"
               step="0.01"
               value={price}
               onChange={(e) => setPrice(e.target.value)}
               className="w-full bg-neutral-800 border border-neutral-700 rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
-              placeholder="Price (₹)"
+              placeholder="Price (₹0.5–9.5)"
               disabled={loading}
             />
             <span className="absolute right-3 top-2 text-xs text-neutral-500">
@@ -307,6 +306,10 @@ export default function BetForm({
           </div>
         </div>
         <div className="text-[10px] -mt-1 mb-1 text-neutral-400 leading-snug">
+          <b>Matching rule:</b> YES at ₹P only matches NO at ₹(10−P). For
+          example, YES ₹6 matches NO ₹4. Orders at the same price will never
+          match.
+          <br />
           {(() => {
             const p = Number(price) || 0;
             if (p <= 0) return null;

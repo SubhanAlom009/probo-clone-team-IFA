@@ -8,7 +8,6 @@ export default function EventAnalytics({ eventId }) {
     totalVolume: 0,
     orderCount: 0,
     lastMatchedPrice: null,
-    uniqueTraders: 0,
     openYes: 0,
     openNo: 0,
   });
@@ -23,18 +22,15 @@ export default function EventAnalytics({ eventId }) {
     const unsubBets = onSnapshot(betsQ, (snap) => {
       let volume = 0;
       let lastPrice = null;
-      const traders = new Set();
       snap.docs.forEach((d) => {
         const b = d.data();
         volume += Number(b.quantity) || 0;
         lastPrice = b.price || lastPrice;
-        if (b.userId) traders.add(b.userId);
       });
       setStats((s) => ({
         ...s,
         totalVolume: volume,
         lastMatchedPrice: lastPrice,
-        uniqueTraders: traders.size,
       }));
     });
     // Listen to orders for order count and open book depth
@@ -92,10 +88,6 @@ export default function EventAnalytics({ eventId }) {
               ? `₹${stats.lastMatchedPrice}`
               : "-"}
           </span>
-        </div>
-        <div>
-          <span className="block text-neutral-400">Unique Traders</span>
-          <span className="font-mono text-pink-400">{stats.uniqueTraders}</span>
         </div>
       </div>
     </div>

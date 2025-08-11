@@ -47,11 +47,22 @@ export default function Navbar() {
   // Close dropdown on outside click
   useEffect(() => {
     function handler(e) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target))
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
         setDropdownOpen(false);
+      }
     }
     if (dropdownOpen) document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
+  }, [dropdownOpen]);
+
+  // Auto close dropdown when hamburger menu opens
+  useEffect(() => {
+    if (menuOpen) setDropdownOpen(false);
+  }, [menuOpen]);
+
+  // Auto close hamburger when dropdown opens
+  useEffect(() => {
+    if (dropdownOpen) setMenuOpen(false);
   }, [dropdownOpen]);
 
   // Auto close mobile menu on route change
@@ -183,22 +194,13 @@ export default function Navbar() {
           </div>
           {/* Mobile Controls */}
           <div className="md:hidden ml-auto flex items-center gap-3">
-            {user ? (
-              <button
-                onClick={() => setDropdownOpen((o) => !o)}
-                className="relative rounded-full h-9 w-9 bg-slate-800/70 border border-slate-700/70 flex items-center justify-center overflow-hidden"
-                aria-label="User menu"
-                aria-expanded={dropdownOpen}
-              >
+            {user && (
+              <div className="flex items-center gap-2">
                 <Avatar user={user} />
-              </button>
-            ) : (
-              <Link
-                href="/auth/signin"
-                className="text-xs font-medium px-3 py-1.5 rounded-full bg-[#0a3d62] text-white hover:bg-cyan-700"
-              >
-                Sign In
-              </Link>
+                <span className="text-xs font-medium text-neutral-300">
+                  {user.displayName?.split(" ")[0] || "User"}
+                </span>
+              </div>
             )}
             <button
               onClick={() => setMenuOpen((o) => !o)}
@@ -228,7 +230,7 @@ export default function Navbar() {
       {/* Mobile Menu Panel */}
       <div
         className={`md:hidden overflow-hidden transition-[max-height] duration-500 ${
-          menuOpen ? "max-h-[420px]" : "max-h-0"
+          menuOpen ? "max-h-[520px]" : "max-h-0"
         }`}
       >
         <div className="px-4 pb-6 pt-2 border-t border-neutral-800 bg-[#10151f] flex flex-col gap-4">
@@ -248,32 +250,23 @@ export default function Navbar() {
               </li>
             ))}
           </ul>
-          {!user && (
-            <div className="flex gap-2 pt-2">
+          {!user ? (
+            <div className="flex flex-col gap-2 pt-2">
               <Link
                 href="/auth/signin"
-                className="flex-1 text-center rounded-full px-4 py-2 text-xs font-semibold text-white bg-[#0a3d62] hover:bg-cyan-700"
+                className="w-full text-center rounded-full px-4 py-2 text-xs font-semibold text-white bg-[#0a3d62] hover:bg-cyan-700"
               >
                 Sign In
               </Link>
               <Link
                 href="/auth/signup"
-                className="flex-1 text-center rounded-full px-4 py-2 text-xs font-semibold text-white bg-[#7b1113] hover:bg-rose-800"
+                className="w-full text-center rounded-full px-4 py-2 text-xs font-semibold text-white bg-[#7b1113] hover:bg-rose-800"
               >
                 Sign Up
               </Link>
             </div>
-          )}
-          {user && dropdownOpen && (
+          ) : (
             <div className="flex flex-col gap-1 pt-2 border-t border-neutral-800 mt-2">
-              {profile?.role === "admin" && (
-                <Link
-                  href="/admin/users"
-                  className="px-3 py-2 rounded-md text-sm text-neutral-300 hover:bg-neutral-800 hover:text-cyan-400 transition"
-                >
-                  Admin
-                </Link>
-              )}
               <Link
                 href="/profile"
                 className="px-3 py-2 rounded-md text-sm text-neutral-300 hover:bg-neutral-800 hover:text-cyan-400 transition"

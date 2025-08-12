@@ -30,11 +30,18 @@ export default function BetForm({
   onPlaced,
   onBetPlaced,
 }) {
+  // Helper function to round price to nearest 0.5
+  const roundToHalf = (price) => {
+    return Math.round(price * 2) / 2;
+  };
+
   // Use provided market (last-trade) prices as defaults; fallback gracefully
-  const defaultYesPrice =
-    typeof market?.yesPrice === "number" ? market.yesPrice : 5;
-  const defaultNoPrice =
-    typeof market?.noPrice === "number" ? market.noPrice : 5;
+  const defaultYesPrice = roundToHalf(
+    typeof market?.yesPrice === "number" ? market.yesPrice : 5
+  );
+  const defaultNoPrice = roundToHalf(
+    typeof market?.noPrice === "number" ? market.noPrice : 5
+  );
 
   const { push } = useToast();
   const [side, setSide] = useState("yes");
@@ -166,6 +173,7 @@ export default function BetForm({
 
   function handleSideSwitch(s) {
     setSide(s);
+    setPrice(s === "yes" ? defaultYesPrice : defaultNoPrice);
     setWarn(null);
     onClearSelected?.();
   }
@@ -342,23 +350,53 @@ export default function BetForm({
           ))}
         </div>
         <div className="flex gap-3">
-          <div className="flex-1 relative">
-            <input
-              type="number"
-              min="0.5"
-              max="9.5"
-              step="0.01"
-              value={price}
-              onChange={(e) => setPrice(e.target.value)}
-              className="w-full bg-neutral-800 border border-neutral-700 rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
-              placeholder="Price (₹0.5–9.5)"
-              disabled={loading}
-            />
-            <span className="absolute right-3 top-2 text-xs text-neutral-500">
-              ₹
-            </span>
+          <div className="flex-1">
+            <label className="block text-xs text-neutral-400 mb-2">
+              Price (₹0.5-9.5)
+            </label>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const newPrice = Math.max(
+                    0.5,
+                    roundToHalf(Number(price) - 0.5)
+                  );
+                  setPrice(newPrice.toString());
+                }}
+                disabled={loading || Number(price) <= 0.5}
+                className="w-8 h-8 flex items-center justify-center bg-neutral-700 hover:bg-neutral-600 disabled:bg-neutral-800 disabled:text-neutral-500 text-white rounded-md text-sm font-medium transition"
+              >
+                −
+              </button>
+              <div className="flex-1 relative">
+                <input
+                  type="text"
+                  value={`₹${price}`}
+                  readOnly
+                  className="w-full bg-neutral-800 border border-neutral-700 rounded-md px-3 py-2 text-sm text-white text-center focus:outline-none"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const newPrice = Math.min(
+                    9.5,
+                    roundToHalf(Number(price) + 0.5)
+                  );
+                  setPrice(newPrice.toString());
+                }}
+                disabled={loading || Number(price) >= 9.5}
+                className="w-8 h-8 flex items-center justify-center bg-neutral-700 hover:bg-neutral-600 disabled:bg-neutral-800 disabled:text-neutral-500 text-white rounded-md text-sm font-medium transition"
+              >
+                +
+              </button>
+            </div>
           </div>
           <div className="flex-1">
+            <label className="block text-xs text-neutral-400 mb-2">
+              Quantity
+            </label>
             <input
               type="number"
               min="1"
@@ -366,7 +404,7 @@ export default function BetForm({
               value={quantity}
               onChange={(e) => setQuantity(e.target.value)}
               className="w-full bg-neutral-800 border border-neutral-700 rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
-              placeholder="Quantity"
+              placeholder="Enter quantity"
               disabled={loading}
             />
           </div>

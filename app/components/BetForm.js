@@ -69,29 +69,48 @@ export default function BetForm({
         resolved = true;
         // Find user's bets for this event
         try {
-          const betsSnap = await getDoc(doc(db, "users", userId));
-          // Fetch bets for this user and event
-          const betsQ = await import("firebase/firestore").then((firestore) =>
+          // Query both yesUserId and noUserId fields like in profile page
+          const betsQYes = await import("firebase/firestore").then(
+            (firestore) =>
+              firestore.query(
+                firestore.collection(db, "bets"),
+                firestore.where("yesUserId", "==", userId),
+                firestore.where("eventId", "==", eventId)
+              )
+          );
+          const betsQNo = await import("firebase/firestore").then((firestore) =>
             firestore.query(
               firestore.collection(db, "bets"),
-              firestore.where("userId", "==", userId),
+              firestore.where("noUserId", "==", userId),
               firestore.where("eventId", "==", eventId)
             )
           );
-          const betsDocs = await import("firebase/firestore").then(
-            (firestore) => firestore.getDocs(betsQ)
-          );
+
+          const [yesSnap, noSnap] = await Promise.all([
+            import("firebase/firestore").then((firestore) =>
+              firestore.getDocs(betsQYes)
+            ),
+            import("firebase/firestore").then((firestore) =>
+              firestore.getDocs(betsQNo)
+            ),
+          ]);
+
+          const allBets = [...yesSnap.docs, ...noSnap.docs];
           let win = false;
           let payout = 0;
           let found = false;
-          betsDocs.forEach((doc) => {
+          allBets.forEach((doc) => {
             const b = doc.data();
-            if (b.status === "settled" && b.outcome === b.side) {
-              win = true;
-              payout += b.payout || 0;
+            const userSide = b.yesUserId === userId ? "yes" : "no";
+            if (b.status === "settled") {
               found = true;
-            } else if (b.status === "settled") {
-              found = true;
+              const isWinner =
+                (b.winner === "yes" && userSide === "yes") ||
+                (b.winner === "no" && userSide === "no");
+              if (isWinner) {
+                win = true;
+                payout += (b.yesLocked || 0) + (b.noLocked || 0); // Winner gets both locked amounts
+              }
             }
           });
           if (found) {

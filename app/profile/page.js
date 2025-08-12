@@ -15,6 +15,7 @@ export default function ProfilePage() {
   const [metrics, setMetrics] = useState(null);
   const [activeTab, setActiveTab] = useState("bets");
   const [openOrders, setOpenOrders] = useState([]);
+  const [allOrders, setAllOrders] = useState([]);
   const [lockedValue, setLockedValue] = useState(0);
   const [ledger, setLedger] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -57,18 +58,44 @@ export default function ProfilePage() {
               id: snap.id,
             }));
         });
-        // Realtime bets
-        const qB = query(
+        // Realtime bets - need to query both yesUserId and noUserId
+        // Simplified queries without orderBy to avoid index issues
+        const qBetsYes = query(
           collection(db, "bets"),
-          where("userId", "==", u.uid),
-          orderBy("createdAt", "desc")
+          where("yesUserId", "==", u.uid)
         );
-        const unsubBets = onSnapshot(qB, async (snap) => {
-          const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-          setBets(list);
+        const qBetsNo = query(
+          collection(db, "bets"),
+          where("noUserId", "==", u.uid)
+        );
+
+        const unsubBetsYes = onSnapshot(qBetsYes, async (snap) => {
+          const yesBets = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+          // Get no bets as well
+          const noBetsSnap = await getDocs(qBetsNo);
+          const noBets = noBetsSnap.docs.map((d) => ({
+            id: d.id,
+            ...d.data(),
+          }));
+
+          // Combine and deduplicate
+          const allUserBets = [...yesBets, ...noBets];
+          const uniqueBets = allUserBets.filter(
+            (bet, index, self) =>
+              index === self.findIndex((b) => b.id === bet.id)
+          );
+
+          // Sort by creation date
+          uniqueBets.sort(
+            (a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)
+          );
+
+          setBets(uniqueBets);
+
           // Fetch event titles for bets
           const eventIds = Array.from(
-            new Set(list.map((b) => b.eventId).filter(Boolean))
+            new Set(uniqueBets.map((b) => b.eventId).filter(Boolean))
           );
           const titles = {};
           await Promise.all(
@@ -101,6 +128,31 @@ export default function ProfilePage() {
           );
           setLockedValue(Number(locked.toFixed(2)));
         });
+
+        // All orders subscription for order history
+        const qAllOrders = query(
+          collection(db, "orders"),
+          where("userId", "==", u.uid),
+          orderBy("createdAt", "desc")
+        );
+        const unsubAllOrders = onSnapshot(qAllOrders, async (snap) => {
+          const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+          setAllOrders(list);
+          // Fetch event titles for orders
+          const eventIds = Array.from(
+            new Set(list.map((o) => o.eventId).filter(Boolean))
+          );
+          const titles = {};
+          await Promise.all(
+            eventIds.map(async (eid) => {
+              try {
+                const evSnap = await getDoc(doc(db, "events", eid));
+                if (evSnap.exists()) titles[eid] = evSnap.data().title;
+              } catch {}
+            })
+          );
+          setEventTitles((prev) => ({ ...prev, ...titles }));
+        });
         // Ledger feed (recent 30 entries)
         const qLedger = query(
           collection(db, "users", u.uid, "ledger"),
@@ -114,8 +166,9 @@ export default function ProfilePage() {
         setLoading(false);
         return () => {
           unsubUser();
-          unsubBets();
+          unsubBetsYes();
           unsubOrders();
+          unsubAllOrders();
           unsubLedger();
         };
       } else {
@@ -197,16 +250,17 @@ export default function ProfilePage() {
         />
       </section>
       <div>
-        <div className="flex border-b border-neutral-800 mb-6 text-xs sm:text-sm gap-1 sm:gap-2 overflow-x-auto">
+        <div className="flex border-b border-neutral-800 mb-6 text-xs sm:text-sm gap-1 sm:gap-3">
           {[
             { key: "bets", label: "Bets" },
             { key: "orders", label: `Orders (${openOrders.length})` },
+            { key: "history", label: "History" },
             { key: "ledger", label: "Ledger" },
           ].map((t) => (
             <button
               key={t.key}
               onClick={() => setActiveTab(t.key)}
-              className={`px-3 sm:px-4 py-2 -mb-px border-b-2 transition-colors rounded-t whitespace-nowrap ${
+              className={`px-2 sm:px-4 py-2 -mb-px border-b-2 transition-colors rounded-t flex-1 sm:flex-none text-center ${
                 activeTab === t.key
                   ? "border-cyan-500 text-cyan-300"
                   : "border-transparent hover:text-neutral-200 text-neutral-500"
@@ -218,65 +272,83 @@ export default function ProfilePage() {
         </div>
         {activeTab === "bets" && (
           <div className="space-y-3 text-xs sm:text-sm">
-            {bets.map((b) => (
-              <div
-                key={b.id}
-                className="flex flex-col sm:grid sm:grid-cols-6 sm:items-center gap-2 sm:gap-3 bg-neutral-900 border border-neutral-800 rounded-lg p-3"
-              >
-                <span
-                  className="sm:col-span-2 font-semibold text-white truncate"
-                  title={eventTitles[b.eventId] || b.eventId}
+            {bets.map((b) => {
+              // Determine user's side and stake
+              const userSide = b.yesUserId === user.uid ? "yes" : "no";
+              const userStake =
+                userSide === "yes" ? b.yesLocked || 0 : b.noLocked || 0;
+              const isWinner =
+                b.status === "settled" &&
+                ((b.winner === "yes" && userSide === "yes") ||
+                  (b.winner === "no" && userSide === "no"));
+              const isLoser = b.status === "settled" && !isWinner;
+
+              return (
+                <div
+                  key={b.id}
+                  className="flex flex-col sm:grid sm:grid-cols-6 sm:items-center gap-2 sm:gap-3 bg-neutral-900 border border-neutral-800 rounded-lg p-3"
                 >
-                  {eventTitles[b.eventId] ? (
-                    <Link
-                      href={`/events/${b.eventId}`}
-                      className="hover:underline text-cyan-400"
+                  <span
+                    className="sm:col-span-2 font-semibold text-white truncate"
+                    title={eventTitles[b.eventId] || b.eventId}
+                  >
+                    {eventTitles[b.eventId] ? (
+                      <Link
+                        href={`/events/${b.eventId}`}
+                        className="hover:underline text-cyan-400"
+                      >
+                        {eventTitles[b.eventId]}
+                      </Link>
+                    ) : (
+                      <span className="text-neutral-500">(Event)</span>
+                    )}
+                  </span>
+                  <div className="flex flex-wrap gap-2 sm:contents">
+                    <span
+                      className={`sm:col-span-1 capitalize font-medium px-2 py-1 text-xs rounded ${
+                        userSide === "yes"
+                          ? "bg-emerald-900 text-emerald-300 border border-emerald-700"
+                          : "bg-rose-900 text-rose-300 border border-rose-700"
+                      }`}
                     >
-                      {eventTitles[b.eventId]}
-                    </Link>
-                  ) : (
-                    <span className="text-neutral-500">(Event)</span>
-                  )}
-                </span>
-                <div className="flex flex-wrap gap-2 sm:contents">
-                  <span
-                    className={`sm:col-span-1 capitalize font-medium px-2 py-1 text-xs rounded ${
-                      b.outcome && b.outcome === b.side
-                        ? "bg-lime-900 text-lime-400 border border-lime-700"
-                        : "bg-neutral-800 text-neutral-300"
-                    }`}
-                  >
-                    {b.side}
-                  </span>
-                  <span className="sm:col-span-1 text-neutral-300">
-                    ₹{b.stake}
-                  </span>
-                  <span className="sm:col-span-1 text-neutral-500 text-xs">
-                    {b.oddsSnapshot
-                      ? (b.oddsSnapshot * 100).toFixed(1) + "%"
-                      : ""}
-                  </span>
-                  <span
-                    className={`sm:col-span-1 text-xs px-2 py-1 rounded ${
-                      b.settled
-                        ? b.outcome === b.side
-                          ? "bg-lime-900 text-lime-400 border border-lime-700"
-                          : "bg-red-900 text-red-400 border border-red-700"
-                        : "bg-neutral-800 text-neutral-500"
-                    }`}
-                  >
-                    {b.settled
-                      ? b.outcome === b.side
-                        ? "Won"
-                        : "Lost"
-                      : "Open"}
-                  </span>
-                  <span className="sm:col-span-1 sm:text-right text-cyan-300 font-mono">
-                    {b.payout ? `₹${b.payout.toFixed(2)}` : "-"}
-                  </span>
+                      {userSide}
+                    </span>
+                    <span className="sm:col-span-1 text-neutral-300">
+                      ₹{userStake.toFixed(2)}
+                    </span>
+                    <span className="sm:col-span-1 text-neutral-500 text-xs">
+                      {b.oddsSnapshot
+                        ? (b.oddsSnapshot * 100).toFixed(1) + "%"
+                        : ""}
+                    </span>
+                    <span
+                      className={`sm:col-span-1 text-xs px-2 py-1 rounded ${
+                        b.status === "settled"
+                          ? isWinner
+                            ? "bg-lime-900 text-lime-400 border border-lime-700"
+                            : "bg-red-900 text-red-400 border border-red-700"
+                          : "bg-neutral-800 text-neutral-500"
+                      }`}
+                    >
+                      {b.status === "settled"
+                        ? isWinner
+                          ? "Won"
+                          : "Lost"
+                        : "Open"}
+                    </span>
+                    <span className="sm:col-span-1 sm:text-right text-cyan-300 font-mono">
+                      {isWinner
+                        ? `₹${((b.yesLocked || 0) + (b.noLocked || 0)).toFixed(
+                            2
+                          )}`
+                        : isLoser
+                        ? "₹0.00"
+                        : "-"}
+                    </span>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
             {!bets.length && (
               <div className="text-neutral-500 text-center py-8">
                 No bets yet.
@@ -321,6 +393,88 @@ export default function ProfilePage() {
             ))}
             {!openOrders.length && (
               <div className="text-neutral-500">No open orders.</div>
+            )}
+          </div>
+        )}
+        {activeTab === "history" && (
+          <div className="space-y-3 text-sm">
+            <div className="grid grid-cols-7 gap-3 px-3 py-2 bg-neutral-800 rounded-lg text-xs font-semibold text-neutral-400 uppercase tracking-wide">
+              <span className="col-span-2">Event</span>
+              <span className="col-span-1 text-center">Side</span>
+              <span className="col-span-1 text-center">Price</span>
+              <span className="col-span-1 text-center">Quantity</span>
+              <span className="col-span-1 text-center">Status</span>
+              <span className="col-span-1 text-center">Amount</span>
+            </div>
+            {allOrders.map((o) => (
+              <div
+                key={o.id}
+                className="grid grid-cols-7 items-center gap-3 bg-neutral-900 border border-neutral-800 rounded-lg p-3"
+              >
+                <span className="col-span-2 truncate">
+                  <Link
+                    href={`/events/${o.eventId}`}
+                    className="text-cyan-400 hover:underline"
+                    title={eventTitles[o.eventId] || o.eventId}
+                  >
+                    {eventTitles[o.eventId] || o.eventId}
+                  </Link>
+                </span>
+                <span
+                  className={`col-span-1 text-xs font-semibold px-2 py-1 rounded-full text-center w-fit ${
+                    o.side === "yes"
+                      ? "bg-emerald-900 text-emerald-300 border border-emerald-700"
+                      : "bg-rose-900 text-rose-300 border border-rose-700"
+                  }`}
+                >
+                  {o.side.toUpperCase()}
+                </span>
+                <span className="col-span-1 font-mono text-cyan-300">
+                  ₹{o.price}
+                </span>
+                <span className="col-span-1 font-mono">
+                  {o.quantity}
+                  {o.quantityRemaining !== undefined &&
+                  o.quantityRemaining !== o.quantity
+                    ? ` (${o.quantityRemaining} left)`
+                    : ""}
+                </span>
+                <span className="col-span-1 text-center">
+                  <span
+                    className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                      o.status === "open"
+                        ? "bg-cyan-900 text-cyan-300 border border-cyan-700"
+                        : o.status === "filled"
+                        ? "bg-lime-900 text-lime-300 border border-lime-700"
+                        : o.status === "cancelled"
+                        ? "bg-neutral-800 text-neutral-400 border border-neutral-700"
+                        : o.status === "refunded"
+                        ? "bg-orange-900 text-orange-300 border border-orange-700"
+                        : "bg-neutral-800 text-neutral-400 border border-neutral-700"
+                    }`}
+                  >
+                    {o.status === "refunded"
+                      ? "Refunded"
+                      : o.status === "filled"
+                      ? "Filled"
+                      : o.status === "cancelled"
+                      ? "Cancelled"
+                      : o.status === "open"
+                      ? "Open"
+                      : o.status}
+                  </span>
+                </span>
+                <span className="col-span-1 font-mono text-neutral-400 text-xs">
+                  {o.refundedAmount
+                    ? `₹${o.refundedAmount}`
+                    : o.lockedAmount
+                    ? `₹${o.lockedAmount}`
+                    : "-"}
+                </span>
+              </div>
+            ))}
+            {!allOrders.length && (
+              <div className="text-neutral-500">No order history.</div>
             )}
           </div>
         )}

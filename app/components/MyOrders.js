@@ -107,8 +107,14 @@ export default function MyOrders({ eventId, userId }) {
       </div>
     );
 
-  // Sort: open > partial > filled > cancelled, then newest first
-  const statusOrder = { open: 0, partial: 1, filled: 2, cancelled: 3 };
+  // Sort: open > partial > filled > cancelled > refunded, then newest first
+  const statusOrder = {
+    open: 0,
+    partial: 1,
+    filled: 2,
+    cancelled: 3,
+    refunded: 4,
+  };
   const sorted = [...orders].sort((a, b) => {
     const sa = statusOrder[a.status] ?? 99;
     const sb = statusOrder[b.status] ?? 99;
@@ -150,6 +156,10 @@ export default function MyOrders({ eventId, userId }) {
                 statusLabel = "Filled";
                 statusClass =
                   "bg-lime-900 text-lime-300 border border-lime-700";
+              } else if (o.status === "refunded") {
+                statusLabel = "Refunded";
+                statusClass =
+                  "bg-orange-900 text-orange-300 border border-orange-700";
               } else {
                 statusLabel = o.status;
                 statusClass =
@@ -217,7 +227,8 @@ export default function MyOrders({ eventId, userId }) {
       </div>
       <div className="mt-2 text-[10px] text-neutral-400">
         <b>Status:</b> Open = resting, Partial = partially matched, Filled =
-        fully matched, Cancelled = user cancelled.
+        fully matched, Cancelled = user cancelled, Refunded = event resolved &
+        refunded.
         <br />
         Only open orders can be cancelled. Quantity shows remaining to match.
       </div>

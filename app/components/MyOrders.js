@@ -186,7 +186,11 @@ export default function MyOrders({ eventId, userId }) {
                     ₹{o.price}
                   </td>
                   <td className="p-2 text-right font-mono">
-                    {o.quantityRemaining ?? o.quantity}
+                    {o.quantity}
+                    {(o.status === "open" || o.status === "partial") &&
+                    o.quantityRemaining < o.quantity
+                      ? ` (${o.quantityRemaining} left)`
+                      : ""}
                   </td>
                   <td className="p-2 text-center">
                     <span

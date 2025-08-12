@@ -210,15 +210,42 @@ export default function BetForm({
   // Simple validation watcher
   useEffect(() => {
     setError(null);
+    setWarn(null);
     if (!quantity) return;
     const q = Number(quantity);
     if (q <= 0) setError("Quantity must be > 0");
   }, [quantity]);
 
+  // Check for self-matching when price/side changes
+  useEffect(() => {
+    if (!userId || !orderBook || !price) return;
+
+    const currentPrice = Number(price);
+    if (currentPrice < 0.5 || currentPrice > 9.5) return;
+
+    const matchingPrice = 10 - currentPrice;
+    const oppositeSide = side === "yes" ? "no" : "yes";
+    const oppositeOrders = orderBook[oppositeSide] || [];
+
+    // Check if user has orders at the matching price on the opposite side
+    const hasMatchingOppositeOrder = oppositeOrders.some(
+      (level) =>
+        level.price === matchingPrice &&
+        (level.userIds?.includes(userId) || level.userId === userId)
+    );
+
+    if (hasMatchingOppositeOrder) {
+      setWarn(
+        `⚠️ You have ${oppositeSide.toUpperCase()} orders at ₹${matchingPrice}. Cannot place ${side.toUpperCase()} at ₹${currentPrice} - would match your own order.`
+      );
+    } else {
+      setWarn(null);
+    }
+  }, [userId, orderBook, price, side]);
+
   async function submit(e) {
     e.preventDefault();
     setError(null);
-    setWarn(null);
     const p = Number(normalizedPrice);
     const q = Number(quantity);
     if (!Number.isFinite(p) || p < 0.5 || p > 9.5)
@@ -226,6 +253,26 @@ export default function BetForm({
     if (!Number.isFinite(q) || q <= 0) return setError("Invalid quantity");
     if (balance !== null && Number(lockedAmount) > balance)
       return setError("Insufficient balance");
+
+    // Check for self-matching before submission
+    if (userId && orderBook) {
+      const matchingPrice = 10 - p;
+      const oppositeSide = side === "yes" ? "no" : "yes";
+      const oppositeOrders = orderBook[oppositeSide] || [];
+
+      const hasMatchingOppositeOrder = oppositeOrders.some(
+        (level) =>
+          level.price === matchingPrice &&
+          (level.userIds?.includes(userId) || level.userId === userId)
+      );
+
+      if (hasMatchingOppositeOrder) {
+        return setError(
+          `You have ${oppositeSide.toUpperCase()} orders at ₹${matchingPrice}. Cannot place ${side.toUpperCase()} at ₹${p} - would match your own order.`
+        );
+      }
+    }
+
     setLoading(true);
     try {
       await placeOrder({ eventId, userId, side, price: p, quantity: q });

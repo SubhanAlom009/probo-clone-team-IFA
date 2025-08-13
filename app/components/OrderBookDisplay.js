@@ -1,139 +1,278 @@
 "use client";
-import React from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
 
-// Enhanced OrderBookDisplay: highlights best bid/ask, user's orders, and clarifies order book model
-// Props:
-//  - orderBook: { yes: [{price, qty, userId?}], no: [{price, qty, userId?}] }
-//  - onSelect?: (price:number, side:'yes'|'no') => void
-//  - maxRows?: number (truncate display)
-//  - userId?: string (optional, to highlight user's orders)
+/**
+ * Enhanced OrderBookDisplay Component
+ *
+ * Features:
+ * - Two-column layout (YES/NO sides)
+ * - Depth bars proportional to max quantity
+ * - Click/keyboard interaction to pre-fill orders
+ * - User order indicators with cancel functionality
+ * - Real-time animations and flash effects
+ * - Mobile responsive stacking
+ * - Full accessibility support
+ *
+ * Props:
+ * - yesOrders: [{ price, qty, userId?, orderId? }] - pre-sorted descending
+ * - noOrders: [{ price, qty, userId?, orderId? }] - pre-sorted ascending
+ * - onSelectPrice: ({ side, price }) => void
+ * - onCancel?: (orderId) => void
+ * - userId?: string
+ * - maxRows?: number
+ */
 export default function OrderBookDisplay({
-  orderBook,
-  onSelect,
-  maxRows = 15,
+  yesOrders = [],
+  noOrders = [],
+  onSelectPrice,
+  onCancel,
   userId,
+  maxRows = 15,
 }) {
-  // Sort YES descending, NO ascending for price ladder
-  const yesLevels = [...(orderBook?.yes || [])]
-    .sort((a, b) => b.price - a.price)
-    .slice(0, maxRows);
-  const noLevels = [...(orderBook?.no || [])]
-    .sort((a, b) => a.price - b.price)
-    .slice(0, maxRows);
+  const [flashedRows, setFlashedRows] = useState(new Set());
+  const prevDataRef = useRef({ yesOrders: [], noOrders: [] });
 
-  // (No explicit best labeling per user request)
-  const bestYes = yesLevels[0]?.price; // kept internally if needed later
-  const bestNo = noLevels[0]?.price;
+  // Format numbers with thousand separators
+  const formatQty = (qty) => {
+    return new Intl.NumberFormat().format(qty);
+  };
+
+  // Format price consistently
+  const formatPrice = (price) => {
+    return price % 1 === 0 ? price.toString() : price.toFixed(1);
+  };
+
+  // Limit rows and validate sorting
+  const processedYesOrders = useMemo(() => {
+    const orders = [...yesOrders].slice(0, maxRows);
+    // Validate descending sort, fallback if needed
+    for (let i = 1; i < orders.length; i++) {
+      if (orders[i].price > orders[i - 1].price) {
+        return orders.sort((a, b) => b.price - a.price);
+      }
+    }
+    return orders;
+  }, [yesOrders, maxRows]);
+
+  const processedNoOrders = useMemo(() => {
+    const orders = [...noOrders].slice(0, maxRows);
+    // Validate ascending sort, fallback if needed
+    for (let i = 1; i < orders.length; i++) {
+      if (orders[i].price < orders[i - 1].price) {
+        return orders.sort((a, b) => a.price - b.price);
+      }
+    }
+    return orders;
+  }, [noOrders, maxRows]);
+
+  // Calculate max quantity for depth bars
+  const maxQty = useMemo(() => {
+    const allQtys = [
+      ...processedYesOrders.map((o) => o.qty),
+      ...processedNoOrders.map((o) => o.qty),
+    ];
+    return Math.max(...allQtys, 1); // Prevent division by 0
+  }, [processedYesOrders, processedNoOrders]);
+
+  // Flash effect for changed quantities
+  useEffect(() => {
+    const prevYes = prevDataRef.current.yesOrders;
+    const prevNo = prevDataRef.current.noOrders;
+    const newFlashed = new Set();
+
+    // Check for quantity changes
+    processedYesOrders.forEach((order, index) => {
+      const prevOrder = prevYes[index];
+      if (prevOrder && prevOrder.qty !== order.qty) {
+        newFlashed.add(`yes-${order.price}`);
+      }
+    });
+
+    processedNoOrders.forEach((order, index) => {
+      const prevOrder = prevNo[index];
+      if (prevOrder && prevOrder.qty !== order.qty) {
+        newFlashed.add(`no-${order.price}`);
+      }
+    });
+
+    if (newFlashed.size > 0) {
+      setFlashedRows(newFlashed);
+      setTimeout(() => setFlashedRows(new Set()), 1000);
+    }
+
+    prevDataRef.current = {
+      yesOrders: processedYesOrders,
+      noOrders: processedNoOrders,
+    };
+  }, [processedYesOrders, processedNoOrders]);
+
+  // Order row component
+  const OrderRow = ({ order, side, index, isBest }) => {
+    const isUserOrder = userId && order.userId === userId;
+    const rowKey = `${side}-${order.price}`;
+    const isFlashed = flashedRows.has(rowKey);
+    const barWidth = (order.qty / maxQty) * 100;
+    const impliedPrice = side === "no" ? (10 - order.price).toFixed(1) : null;
+
+    const handleClick = () => {
+      onSelectPrice?.({ side, price: order.price });
+    };
+
+    const handleKeyDown = (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        handleClick();
+      }
+    };
+
+    const handleCancel = (e) => {
+      e.stopPropagation();
+      onCancel?.(order.orderId);
+    };
+
+    const tooltipContent = null; // Removed tooltips as per user request
+
+    return (
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={handleClick}
+        onKeyDown={handleKeyDown}
+        aria-label={`Select ${side.toUpperCase()} price ${formatPrice(
+          order.price
+        )} quantity ${formatQty(order.qty)}`}
+        className={`
+          relative group cursor-pointer rounded-md px-3 py-2 transition-all duration-200
+          ${
+            side === "yes"
+              ? "hover:bg-emerald-900/30 text-emerald-300"
+              : "hover:bg-rose-900/30 text-rose-300"
+          }
+          ${isFlashed ? "animate-pulse bg-yellow-500/20" : ""}
+          focus:outline-none
+        `}
+      >
+        {/* Depth bar */}
+        <div
+          className={`
+            absolute inset-y-0 left-0 transition-all duration-300 ease-out rounded-md opacity-30
+            ${side === "yes" ? "bg-emerald-500" : "bg-rose-500"}
+          `}
+          style={{ width: `${barWidth}%` }}
+        />
+
+        {/* Content */}
+        <div
+          className={`relative flex items-center justify-between z-10 ${
+            side === "yes" ? "" : "flex-row-reverse"
+          }`}
+        >
+          <div
+            className={`font-mono font-bold ${
+              side === "yes" ? "text-emerald-400" : "text-rose-400"
+            }`}
+          >
+            ₹{formatPrice(order.price)}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="tabular-nums font-medium">
+              {formatQty(order.qty)}
+            </span>
+
+            {isUserOrder && onCancel && order.orderId && (
+              <button
+                onClick={handleCancel}
+                className="text-[10px] px-1 py-0.5 bg-red-600 hover:bg-red-700 text-white rounded transition"
+                aria-label="Cancel order"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
-    <div className="w-full">
-      <div className="flex items-center justify-between mb-2 text-[11px] font-semibold tracking-wide text-neutral-400">
-        <span>YES ORDERS (Buy)</span>
-        <span>NO ORDERS (Sell)</span>
-      </div>
-      <div className="grid grid-cols-2 gap-4">
-        {/* YES side */}
-        <div className="space-y-1 max-h-56 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-neutral-700">
-          {yesLevels.length === 0 && (
-            <div className="text-neutral-600 text-xs py-2">No YES orders</div>
-          )}
-          {yesLevels.map((lvl, i) => {
-            const isMine = userId && lvl.userId === userId;
-            // Highlight if there is a NO order at (10-lvl.price)
-            const hasComplement = noLevels.some(
-              (nl) => Math.abs(nl.price - (10 - lvl.price)) < 0.0001
-            );
-            return (
-              <button
-                key={`yes-${i}`}
-                type="button"
-                onClick={() => onSelect?.(lvl.price, "yes")}
-                className={`w-full group flex items-center justify-between gap-2 rounded-md border px-2 py-1 text-xs font-medium transition
-                  border-emerald-700/30 bg-emerald-950/40
-                  ${isMine ? "ring-2 ring-cyan-400/60" : ""}
-                  ${hasComplement ? "border-yellow-400 bg-yellow-900/30" : ""}
-                  hover:bg-emerald-900/60 text-emerald-300`}
-                title={
-                  isMine
-                    ? "Your order"
-                    : hasComplement
-                    ? "Matching NO order exists at ₹" +
-                      (10 - lvl.price).toFixed(2)
-                    : "Click to pre-fill order form"
-                }
-              >
-                <span className="font-mono">₹{lvl.price}</span>
-                <span className="tabular-nums text-emerald-400 group-hover:text-emerald-200">
-                  {lvl.qty}
-                </span>
-                {isMine && (
-                  <span className="ml-1 text-[10px] text-cyan-300">Mine</span>
-                )}
-                {hasComplement && (
-                  <span className="ml-1 text-[10px] text-yellow-300">
-                    Matchable
-                  </span>
-                )}
-              </button>
-            );
-          })}
+    <div className="w-full bg-neutral-900 border border-neutral-800 rounded-xl p-4">
+      {/* Column headers - Desktop */}
+      <div className="hidden md:grid md:grid-cols-2 gap-6 mb-3">
+        <div className="text-center">
+          <div className="text-sm font-bold text-emerald-400 mb-1">
+            YES PRICES
+          </div>
         </div>
-        {/* NO side */}
-        <div className="space-y-1 max-h-56 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-neutral-700">
-          {noLevels.length === 0 && (
-            <div className="text-neutral-600 text-xs py-2">No NO orders</div>
-          )}
-          {noLevels.map((lvl, i) => {
-            const isMine = userId && lvl.userId === userId;
-            // Highlight if there is a YES order at (10-lvl.price)
-            const hasComplement = yesLevels.some(
-              (yl) => Math.abs(yl.price - (10 - lvl.price)) < 0.0001
-            );
-            return (
-              <button
-                key={`no-${i}`}
-                type="button"
-                onClick={() => onSelect?.(lvl.price, "no")}
-                className={`w-full group flex items-center justify-between gap-2 rounded-md border px-2 py-1 text-xs font-medium transition
-                  border-rose-700/30 bg-rose-950/40
-                  ${isMine ? "ring-2 ring-cyan-400/60" : ""}
-                  ${hasComplement ? "border-yellow-400 bg-yellow-900/30" : ""}
-                  hover:bg-rose-900/60 text-rose-300`}
-                title={
-                  isMine
-                    ? "Your order"
-                    : hasComplement
-                    ? "Matching YES order exists at ₹" +
-                      (10 - lvl.price).toFixed(2)
-                    : "Click to pre-fill order form"
-                }
-              >
-                <span className="font-mono">₹{lvl.price}</span>
-                <span className="tabular-nums text-rose-400 group-hover:text-rose-200">
-                  {lvl.qty}
-                </span>
-                {isMine && (
-                  <span className="ml-1 text-[10px] text-cyan-300">Mine</span>
-                )}
-                {hasComplement && (
-                  <span className="ml-1 text-[10px] text-yellow-300">
-                    Matchable
-                  </span>
-                )}
-              </button>
-            );
-          })}
+        <div className="text-center">
+          <div className="text-sm font-bold text-rose-400 mb-1">NO PRICES</div>
         </div>
       </div>
-      <div className="mt-2 text-[10px] leading-relaxed text-neutral-500">
-        <b>Probo-style Matching:</b> YES at ₹P only matches NO at ₹(10−P).
-        Complementary prices are highlighted. Orders at the same price will
-        never match.
-        <br />
-        <span className="text-neutral-400">
-          <b>Mine</b> = your order. <b>Matchable</b> = a complementary order
-          exists and can match if you place the opposite side.
-        </span>
+
+      {/* Order lists */}
+      <div className="md:grid md:grid-cols-2 md:gap-6 space-y-6 md:space-y-0">
+        {/* YES column */}
+        <div className="space-y-1">
+          <div className="md:hidden text-center mb-3">
+            <div className="text-sm font-bold text-emerald-400 mb-1">
+              YES PRICES
+            </div>
+          </div>
+
+          <div className="max-h-56 overflow-y-auto space-y-1 scrollbar-thin scrollbar-thumb-neutral-700 scrollbar-track-neutral-900">
+            {processedYesOrders.length === 0 ? (
+              <div className="text-center text-neutral-500 py-4 text-sm">
+                No YES orders
+              </div>
+            ) : (
+              processedYesOrders.map((order, index) => (
+                <OrderRow
+                  key={`yes-${order.price}-${index}`}
+                  order={order}
+                  side="yes"
+                  index={index}
+                  isBest={false}
+                />
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* NO column */}
+        <div className="space-y-1">
+          <div className="md:hidden text-center mb-3">
+            <div className="text-sm font-bold text-rose-400 mb-1">
+              NO PRICES
+            </div>
+          </div>
+
+          <div className="max-h-56 overflow-y-auto space-y-1 scrollbar-thin scrollbar-thumb-neutral-700 scrollbar-track-neutral-900">
+            {processedNoOrders.length === 0 ? (
+              <div className="text-center text-neutral-500 py-4 text-sm">
+                No NO orders
+              </div>
+            ) : (
+              processedNoOrders.map((order, index) => (
+                <OrderRow
+                  key={`no-${order.price}-${index}`}
+                  order={order}
+                  side="no"
+                  index={index}
+                  isBest={false}
+                />
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Footer info */}
+      <div className="mt-4 pt-3 border-t border-neutral-700 text-[10px] text-neutral-500 leading-relaxed">
+        <div className="mb-1">
+          <span className="font-bold">Matching:</span> YES at ₹P matches NO at
+          ₹(10−P) only.
+        </div>
+        <div>Click any row to pre-fill order form</div>
       </div>
     </div>
   );

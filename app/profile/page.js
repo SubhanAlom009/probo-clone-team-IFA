@@ -337,13 +337,26 @@ export default function ProfilePage() {
                         : "Open"}
                     </span>
                     <span className="sm:col-span-1 sm:text-right text-cyan-300 font-mono">
-                      {isWinner
-                        ? `₹${((b.yesLocked || 0) + (b.noLocked || 0)).toFixed(
-                            2
-                          )}`
-                        : isLoser
-                        ? "₹0.00"
-                        : "-"}
+                      {isWinner ? (
+                        <div className="text-right">
+                          <div className="text-cyan-300">
+                            ₹
+                            {(
+                              b.finalPayout ||
+                              (b.yesLocked || 0) + (b.noLocked || 0)
+                            ).toFixed(2)}
+                          </div>
+                          {b.commission && (
+                            <div className="text-xs text-neutral-500">
+                              (₹{b.commission.toFixed(2)} fee)
+                            </div>
+                          )}
+                        </div>
+                      ) : isLoser ? (
+                        "₹0.00"
+                      ) : (
+                        "-"
+                      )}
                     </span>
                   </div>
                 </div>

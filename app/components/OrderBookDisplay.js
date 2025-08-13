@@ -272,9 +272,7 @@ export default function OrderBookDisplay({
           <span className="font-bold">Matching:</span> YES at ₹P matches NO at
           ₹(10−P) only.
         </div>
-        <div>
-          Click any row to pre-fill order form
-        </div>
+        <div>Click any row to pre-fill order form</div>
       </div>
     </div>
   );

@@ -128,28 +128,63 @@ export default function EventDetailPage() {
   }, []);
 
   // Aggregate live order book from Firestore orders (must be before any early return)
-  const orderBook = useMemo(() => {
-    const yesMap = new Map();
-    const noMap = new Map();
+  const { yesOrders, noOrders } = useMemo(() => {
+    const yesOrdersMap = new Map();
+    const noOrdersMap = new Map();
+
     for (const o of orders || []) {
       if (!o.price || !o.quantityRemaining || o.quantityRemaining <= 0)
         continue;
+
       const price = Number(o.price);
       const qty = Number(o.quantityRemaining);
+      const orderData = {
+        price,
+        qty,
+        userId: o.userId,
+        orderId: o.id,
+      };
+
       if (o.side === "yes") {
-        yesMap.set(price, (yesMap.get(price) || 0) + qty);
+        const existing = yesOrdersMap.get(price) || {
+          price,
+          qty: 0,
+          orders: [],
+        };
+        existing.qty += qty;
+        existing.orders.push(orderData);
+        yesOrdersMap.set(price, existing);
       } else if (o.side === "no") {
-        noMap.set(price, (noMap.get(price) || 0) + qty);
+        const existing = noOrdersMap.get(price) || {
+          price,
+          qty: 0,
+          orders: [],
+        };
+        existing.qty += qty;
+        existing.orders.push(orderData);
+        noOrdersMap.set(price, existing);
       }
     }
-    return {
-      yes: Array.from(yesMap.entries())
-        .map(([price, qty]) => ({ price, qty }))
-        .sort((a, b) => b.price - a.price),
-      no: Array.from(noMap.entries())
-        .map(([price, qty]) => ({ price, qty }))
-        .sort((a, b) => a.price - b.price),
-    };
+
+    // Convert to arrays and flatten individual orders for display
+    const yesOrders = [];
+    const noOrders = [];
+
+    // For YES orders (sorted descending)
+    Array.from(yesOrdersMap.values())
+      .sort((a, b) => b.price - a.price)
+      .forEach((level) => {
+        level.orders.forEach((order) => yesOrders.push(order));
+      });
+
+    // For NO orders (sorted ascending)
+    Array.from(noOrdersMap.values())
+      .sort((a, b) => a.price - b.price)
+      .forEach((level) => {
+        level.orders.forEach((order) => noOrders.push(order));
+      });
+
+    return { yesOrders, noOrders };
   }, [orders]);
 
   // --- OPTION B: LAST TRADE DRIVEN PRICING ---
@@ -164,13 +199,13 @@ export default function EventDetailPage() {
         lastBet.side === "yes" ? lastBet.price : 10 - lastBet.price;
     }
 
-    // Helper to get lowest ask for a side (YES side orders sorted desc, NO asc)
-    const lowest = (levels) => {
-      if (!levels || !levels.length) return null;
-      return Math.min(...levels.map((l) => l.price));
+    // Helper to get lowest ask for a side
+    const lowest = (orders) => {
+      if (!orders || !orders.length) return null;
+      return Math.min(...orders.map((o) => o.price));
     };
-    const bestNoAsk = lowest(orderBook.no); // sets YES directly
-    const bestYesAsk = lowest(orderBook.yes); // implies NO -> YES = 10 - NO
+    const bestNoAsk = lowest(noOrders); // sets YES directly
+    const bestYesAsk = lowest(yesOrders); // implies NO -> YES = 10 - NO
 
     if (typeof lastTradeYesPrice === "number") {
       return {
@@ -189,7 +224,7 @@ export default function EventDetailPage() {
       return { yesPrice: impliedYes, noPrice: bestYesAsk };
     }
     return { yesPrice: 5, noPrice: 5 };
-  }, [bets, orderBook]);
+  }, [bets, yesOrders, noOrders]);
 
   const yesProb = ((yesPrice / 10) * 100).toFixed(1);
   const noProb = ((noPrice / 10) * 100).toFixed(1);
@@ -242,14 +277,14 @@ export default function EventDetailPage() {
         {/* --- Event Analytics Panel --- */}
         <EventAnalytics eventId={id} yesPrice={yesPrice} noPrice={noPrice} />
         {/* Order Book (levels) */}
-        <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 shadow-lg">
-          <OrderBookDisplay
-            orderBook={orderBook}
-            onSelect={(price, side) => {
-              setSelectedOrder({ side, price });
-            }}
-          />
-        </div>
+        <OrderBookDisplay
+          yesOrders={yesOrders}
+          noOrders={noOrders}
+          onSelectPrice={({ side, price }) => {
+            setSelectedOrder({ side, price });
+          }}
+          userId={user?.uid}
+        />
         {/* Market Timeline (price / probability over time) */}
         <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 shadow-lg">
           <MarketTimelineChart
@@ -298,7 +333,6 @@ export default function EventDetailPage() {
                 eventId={event.id}
                 onBetPlaced={handleBetPlaced}
                 market={{ yesPrice, noPrice, yesProb, noProb }}
-                orderBook={orderBook}
                 selectedOrder={selectedOrder}
                 onClearSelected={() => setSelectedOrder(null)}
                 userId={user.uid}

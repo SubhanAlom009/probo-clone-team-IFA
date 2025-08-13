@@ -23,7 +23,6 @@ const fallbackOrderBook = {
 export default function BetForm({
   eventId,
   userId,
-  orderBook,
   market, // { yesPrice, noPrice }
   selectedOrder,
   onClearSelected,
@@ -193,10 +192,20 @@ export default function BetForm({
     return (q * 10).toFixed(2);
   }, [quantity]);
 
-  const profit = useMemo(
-    () => (Number(payout) - Number(totalCost)).toFixed(2),
-    [payout, totalCost]
-  );
+  const profit = useMemo(() => {
+    const grossProfit = Number(payout) - Number(totalCost);
+    // Apply 20% commission on winnings (profit portion only)
+    if (grossProfit > 0) {
+      const commission = grossProfit * 0.2;
+      return (grossProfit - commission).toFixed(2);
+    }
+    return grossProfit.toFixed(2);
+  }, [payout, totalCost]);
+
+  const commission = useMemo(() => {
+    const grossProfit = Number(payout) - Number(totalCost);
+    return grossProfit > 0 ? (grossProfit * 0.2).toFixed(2) : "0.00";
+  }, [payout, totalCost]);
 
   const yesProbPct = useMemo(() => {
     // Market probability shown at top should reflect current market yesPrice (not editing field) per Option B
@@ -224,33 +233,6 @@ export default function BetForm({
     if (q <= 0) setError("Quantity must be > 0");
   }, [quantity]);
 
-  // Check for self-matching when price/side changes
-  useEffect(() => {
-    if (!userId || !orderBook || !price) return;
-
-    const currentPrice = Number(price);
-    if (currentPrice < 0.5 || currentPrice > 9.5) return;
-
-    const matchingPrice = 10 - currentPrice;
-    const oppositeSide = side === "yes" ? "no" : "yes";
-    const oppositeOrders = orderBook[oppositeSide] || [];
-
-    // Check if user has orders at the matching price on the opposite side
-    const hasMatchingOppositeOrder = oppositeOrders.some(
-      (level) =>
-        level.price === matchingPrice &&
-        (level.userIds?.includes(userId) || level.userId === userId)
-    );
-
-    if (hasMatchingOppositeOrder) {
-      setWarn(
-        `⚠️ You have ${oppositeSide.toUpperCase()} orders at ₹${matchingPrice}. Cannot place ${side.toUpperCase()} at ₹${currentPrice} - would match your own order.`
-      );
-    } else {
-      setWarn(null);
-    }
-  }, [userId, orderBook, price, side]);
-
   async function submit(e) {
     e.preventDefault();
     setError(null);
@@ -261,25 +243,6 @@ export default function BetForm({
     if (!Number.isFinite(q) || q <= 0) return setError("Invalid quantity");
     if (balance !== null && Number(lockedAmount) > balance)
       return setError("Insufficient balance");
-
-    // Check for self-matching before submission
-    if (userId && orderBook) {
-      const matchingPrice = 10 - p;
-      const oppositeSide = side === "yes" ? "no" : "yes";
-      const oppositeOrders = orderBook[oppositeSide] || [];
-
-      const hasMatchingOppositeOrder = oppositeOrders.some(
-        (level) =>
-          level.price === matchingPrice &&
-          (level.userIds?.includes(userId) || level.userId === userId)
-      );
-
-      if (hasMatchingOppositeOrder) {
-        return setError(
-          `You have ${oppositeSide.toUpperCase()} orders at ₹${matchingPrice}. Cannot place ${side.toUpperCase()} at ₹${p} - would match your own order.`
-        );
-      }
-    }
 
     setLoading(true);
     try {
@@ -435,22 +398,32 @@ export default function BetForm({
             );
           })()}
         </div>
-        <div className="grid grid-cols-3 gap-2 text-[11px] font-medium">
-          <div className="bg-neutral-800 rounded-md px-3 py-2 flex flex-col">
-            <span className="text-neutral-400">LOCKED</span>
-            <span className="text-cyan-400 font-semibold">₹{lockedAmount}</span>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-[11px] font-medium mt-2 mb-2">
+          <div className="bg-neutral-800 rounded-lg px-3 py-3 flex flex-col items-center shadow-sm min-w-0">
+            <span className="text-neutral-400 mb-1 tracking-wide">LOCKED</span>
+            <span className="text-cyan-400 font-bold text-sm">
+              ₹{lockedAmount}
+            </span>
           </div>
-          <div className="bg-neutral-800 rounded-md px-3 py-2 flex flex-col">
-            <span className="text-neutral-400">PAYOUT</span>
-            <span className="text-emerald-400 font-semibold">₹{payout}</span>
+          <div className="bg-neutral-800 rounded-lg px-3 py-3 flex flex-col items-center shadow-sm min-w-0">
+            <span className="text-neutral-400 mb-1 tracking-wide">PAYOUT</span>
+            <span className="text-emerald-400 font-bold text-sm">
+              ₹{payout}
+            </span>
           </div>
-          <div className="bg-neutral-800 rounded-md px-3 py-2 flex flex-col">
-            <span className="text-neutral-400">PROFIT</span>
+          <div className="bg-neutral-800 rounded-lg px-3 py-3 flex flex-col items-center shadow-sm min-w-0 overflow-x-auto">
+            <span className="text-neutral-400 mb-1 tracking-wide">COMM.</span>
+            <span className="text-yellow-400 font-bold text-sm break-words">
+              ₹{commission}
+            </span>
+          </div>
+          <div className="bg-neutral-800 rounded-lg px-3 py-3 flex flex-col items-center shadow-sm min-w-0">
+            <span className="text-neutral-400 mb-1 tracking-wide">PROFIT</span>
             <span
               className={
                 Number(profit) >= 0
-                  ? "text-lime-400 font-semibold"
-                  : "text-rose-400 font-semibold"
+                  ? "text-lime-400 font-bold text-sm"
+                  : "text-rose-400 font-bold text-sm"
               }
             >
               ₹{profit}
@@ -486,7 +459,7 @@ export default function BetForm({
       </form>
       <p className="text-[10px] text-neutral-500 leading-relaxed">
         Each winning share pays ₹10. Locked = price × qty (YES) or (10 − price)
-        × qty (NO).
+        × qty (NO). <span className="text-yellow-400">20% fee on profit.</span>
       </p>
     </div>
   );

@@ -7,6 +7,16 @@ import {
   useRef,
   useEffect,
 } from "react";
+import { auth, db } from "@/lib/firebase";
+import { onAuthStateChanged } from "firebase/auth";
+import {
+  collection,
+  onSnapshot,
+  orderBy,
+  query,
+  where,
+  limit,
+} from "firebase/firestore";
 
 const ToastCtx = createContext(null);
 
@@ -66,6 +76,94 @@ export function ToastProvider({ children }) {
     }, 1000);
     return () => clearInterval(i);
   }, []);
+
+  // Realtime: notify on new messages directed to current user
+  useEffect(() => {
+    let unsubAuth = () => {};
+    let unsubConvos = () => {};
+    const msgUnsubs = new Map();
+
+    unsubAuth = onAuthStateChanged(auth, (u) => {
+      // Clean old listeners
+      if (unsubConvos) unsubConvos();
+      for (const unsub of msgUnsubs.values()) {
+        try {
+          unsub();
+        } catch {}
+      }
+      msgUnsubs.clear();
+
+      if (!u) return;
+      const me = u;
+
+      // Listen to conversations where user participates
+      const convQ = query(
+        collection(db, "conversations"),
+        where("participants", "array-contains", me.uid)
+      );
+      unsubConvos = onSnapshot(
+        convQ,
+        (snap) => {
+          snap.docChanges().forEach((change) => {
+            const cid = change.doc.id;
+            if (change.type === "removed") {
+              const u = msgUnsubs.get(cid);
+              if (u) {
+                try {
+                  u();
+                } catch {}
+                msgUnsubs.delete(cid);
+              }
+              return;
+            }
+            if (msgUnsubs.has(cid)) return; // already listening
+            const msgsQ = query(
+              collection(db, "conversations", cid, "messages"),
+              orderBy("timestamp", "desc"),
+              limit(1)
+            );
+            const unsub = onSnapshot(
+              msgsQ,
+              (msnap) => {
+                const latestDoc = msnap.docs[0];
+                if (!latestDoc) return;
+                const latest = latestDoc.data();
+                if (latest.isDeleted) return;
+                if (
+                  latest.receiverId === me.uid &&
+                  latest.senderId !== me.uid
+                ) {
+                  const text = latest.text?.slice(0, 120) || "New message";
+                  push({
+                    message: `New message: ${text}`,
+                    type: "info",
+                    ttl: 5000,
+                  });
+                }
+              },
+              () => {
+                /* ignore errors */
+              }
+            );
+            msgUnsubs.set(cid, unsub);
+          });
+        },
+        () => {
+          /* ignore errors */
+        }
+      );
+    });
+
+    return () => {
+      if (unsubAuth) unsubAuth();
+      if (unsubConvos) unsubConvos();
+      for (const unsub of msgUnsubs.values()) {
+        try {
+          unsub();
+        } catch {}
+      }
+    };
+  }, [push]);
 
   return (
     <ToastCtx.Provider value={{ push, dismiss }}>

@@ -7,6 +7,8 @@ import { auth } from "@/lib/firebase";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { apiFetch } from "@/lib/clientApi";
 import { Inter } from "next/font/google";
+import { db } from "@/lib/firebase";
+import { collection, onSnapshot, query, where } from "firebase/firestore";
 
 const font = Inter({
   subsets: ["latin"],
@@ -17,6 +19,7 @@ const NAV_LINKS_BASE = [
   { href: "/", label: "Home" },
   { href: "/events", label: "Events" },
   { href: "/orders", label: "My Orders", auth: true },
+  { href: "/messages", label: "Messages", auth: true },
 ];
 
 export default function Navbar() {
@@ -26,8 +29,10 @@ export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
+  const [unread, setUnread] = useState(0);
 
   useEffect(() => {
+    let unsubConv = () => {};
     const unsub = onAuthStateChanged(auth, async (u) => {
       setUser(u);
       if (u) {
@@ -39,9 +44,29 @@ export default function Navbar() {
         u.getIdToken().then((token) => {
           console.log("[Firebase ID Token]", token);
         });
+        // Listen to conversations for unread count
+        try {
+          if (unsubConv) unsubConv();
+          const q = query(
+            collection(db, "conversations"),
+            where("participants", "array-contains", u.uid)
+          );
+          unsubConv = onSnapshot(q, (snap) => {
+            let total = 0;
+            snap.forEach((doc) => {
+              const data = doc.data();
+              const c = data?.unreadCount?.[u.uid] || 0;
+              total += c;
+            });
+            setUnread(total);
+          });
+        } catch {}
       } else setProfile(null);
     });
-    return () => unsub();
+    return () => {
+      unsub();
+      if (unsubConv) unsubConv();
+    };
   }, []);
 
   // Close dropdown on outside click
@@ -96,7 +121,7 @@ export default function Navbar() {
           {/* Desktop Nav */}
           <ul className="hidden md:flex flex-1 items-center justify-center gap-10 text-sm font-medium">
             {navLinks.map((l) => (
-              <li key={l.href}>
+              <li key={l.href} className="relative">
                 <Link
                   href={l.href}
                   className={`relative pb-1 text-neutral-300 hover:text-cyan-400 transition ${accentUnderline} ${
@@ -105,6 +130,11 @@ export default function Navbar() {
                 >
                   {l.label}
                 </Link>
+                {l.href === "/messages" && user && unread > 0 && (
+                  <span className="absolute -right-3 -top-2 text-[10px] px-1.5 py-0.5 rounded-full bg-cyan-600 text-white shadow">
+                    {unread > 9 ? "9+" : unread}
+                  </span>
+                )}
               </li>
             ))}
             {user && (
@@ -236,7 +266,7 @@ export default function Navbar() {
         <div className="px-4 pb-6 pt-2 border-t border-neutral-800 bg-[#10151f] flex flex-col gap-4">
           <ul className="flex flex-col gap-1 text-sm font-medium">
             {navLinks.map((l) => (
-              <li key={l.href}>
+              <li key={l.href} className="relative">
                 <Link
                   href={l.href}
                   className={`block px-3 py-2 rounded-md hover:bg-neutral-800 transition ${
@@ -247,6 +277,11 @@ export default function Navbar() {
                 >
                   {l.label}
                 </Link>
+                {l.href === "/messages" && user && unread > 0 && (
+                  <span className="absolute right-2 top-1.5 text-[10px] px-1.5 py-0.5 rounded-full bg-cyan-600 text-white shadow">
+                    {unread > 9 ? "9+" : unread}
+                  </span>
+                )}
               </li>
             ))}
           </ul>

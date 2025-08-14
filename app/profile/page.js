@@ -273,15 +273,28 @@ export default function ProfilePage() {
         {activeTab === "bets" && (
           <div className="space-y-3 text-xs sm:text-sm">
             {bets.map((b) => {
+              // Check if this is a self-match (same user on both sides)
+              const isSelfMatch =
+                b.yesUserId === b.noUserId && b.yesUserId === user.uid;
+
               // Determine user's side and stake
               const userSide = b.yesUserId === user.uid ? "yes" : "no";
               const userStake =
                 userSide === "yes" ? b.yesLocked || 0 : b.noLocked || 0;
+
+              // For self-matches, show total stake and net result
+              const totalStake = isSelfMatch
+                ? (b.yesLocked || 0) + (b.noLocked || 0)
+                : userStake;
+              const displaySide = isSelfMatch ? "both" : userSide;
+
               const isWinner =
+                !isSelfMatch &&
                 b.status === "settled" &&
                 ((b.winner === "yes" && userSide === "yes") ||
                   (b.winner === "no" && userSide === "no"));
-              const isLoser = b.status === "settled" && !isWinner;
+              const isLoser =
+                !isSelfMatch && b.status === "settled" && !isWinner;
 
               return (
                 <div
@@ -306,38 +319,55 @@ export default function ProfilePage() {
                   <div className="flex flex-wrap gap-2 sm:contents">
                     <span
                       className={`sm:col-span-1 capitalize font-medium px-2 py-1 text-xs rounded ${
-                        userSide === "yes"
+                        isSelfMatch
+                          ? "bg-purple-900 text-purple-300 border border-purple-700"
+                          : displaySide === "yes"
                           ? "bg-emerald-900 text-emerald-300 border border-emerald-700"
                           : "bg-rose-900 text-rose-300 border border-rose-700"
                       }`}
                     >
-                      {userSide}
+                      {isSelfMatch ? "Self-Match" : displaySide}
                     </span>
                     <span className="sm:col-span-1 text-neutral-300">
-                      ₹{userStake.toFixed(2)}
+                      ₹{totalStake.toFixed(2)}
                     </span>
                     <span className="sm:col-span-1 text-neutral-500 text-xs">
-                      {b.oddsSnapshot
+                      {isSelfMatch
+                        ? "Hedge"
+                        : b.oddsSnapshot
                         ? (b.oddsSnapshot * 100).toFixed(1) + "%"
                         : ""}
                     </span>
                     <span
                       className={`sm:col-span-1 text-xs px-2 py-1 rounded ${
                         b.status === "settled"
-                          ? isWinner
+                          ? isSelfMatch
+                            ? "bg-orange-900 text-orange-400 border border-orange-700"
+                            : isWinner
                             ? "bg-lime-900 text-lime-400 border border-lime-700"
                             : "bg-red-900 text-red-400 border border-red-700"
                           : "bg-neutral-800 text-neutral-500"
                       }`}
                     >
                       {b.status === "settled"
-                        ? isWinner
+                        ? isSelfMatch
+                          ? "Commission Paid"
+                          : isWinner
                           ? "Won"
                           : "Lost"
                         : "Open"}
                     </span>
                     <span className="sm:col-span-1 sm:text-right text-cyan-300 font-mono">
-                      {isWinner ? (
+                      {isSelfMatch && b.status === "settled" ? (
+                        <div className="text-right">
+                          <div className="text-red-400">
+                            -₹{(b.commission || 0).toFixed(2)}
+                          </div>
+                          <div className="text-xs text-neutral-500">
+                            (commission loss)
+                          </div>
+                        </div>
+                      ) : isWinner ? (
                         <div className="text-right">
                           <div className="text-cyan-300">
                             ₹
@@ -562,6 +592,8 @@ function formatLedgerType(t) {
       return "Order Cancelled";
     case "payout":
       return "Event Payout";
+    case "self-match-settlement":
+      return "Self-Match Commission";
     default:
       return t;
   }

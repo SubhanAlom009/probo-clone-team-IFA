@@ -8,6 +8,8 @@ import MyOrders from "@/app/components/MyOrders";
 import MarketTimelineChart from "@/app/components/MarketTimelineChart";
 import OrderBookDisplay from "@/app/components/OrderBookDisplay";
 import EventAnalytics from "@/app/components/EventAnalytics";
+import AIAnalyzer from "@/app/components/AIAnalyzer";
+import TradersSection from "@/app/components/TradersSection";
 // import { computeSmoothedProb } from "@/lib/marketMath"; // no longer used with order-book probability
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
@@ -315,6 +317,12 @@ export default function EventDetailPage() {
               .filter((d) => d.yesPrice !== null)}
           />
         </div>
+
+        {/* AI Market Analysis */}
+        <AIAnalyzer eventId={id} />
+
+        {/* Active Traders Section */}
+        <TradersSection eventId={id} />
       </div>
       {/* Right: Bet form and recent bets */}
       <div className="w-full md:w-[380px] flex-shrink-0 space-y-8">
@@ -345,40 +353,6 @@ export default function EventDetailPage() {
             </div>
           )}
         </div>
-        {/* <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 shadow-lg">
-          <h2 className="font-semibold text-lg mb-4 tracking-tight text-white">
-            Recent Bets
-          </h2>
-          <div className="space-y-3 text-sm max-h-80 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-neutral-700 scrollbar-track-neutral-900 rounded-md">
-            {bets.slice(0, 25).length === 0 && (
-              <div className="text-neutral-500">No bets yet.</div>
-            )}
-            {bets.slice(0, 10).map((b) => (
-              <div
-                key={b.id}
-                className={`flex justify-between bg-neutral-900 border border-neutral-800 rounded-lg p-3 transition-shadow ${
-                  lastFirstBetId.current === b.id
-                    ? "ring-2 ring-cyan-500/40 shadow-lg"
-                    : ""
-                }`}
-              >
-                <span
-                  className={`capitalize font-medium ${
-                    b.outcome && b.outcome === b.side ? "text-lime-400" : ""
-                  }`}
-                >
-                  {b.side}
-                </span>
-                <span className="font-mono text-cyan-300">{b.stake}</span>
-                <span className="text-neutral-500 font-mono">
-                  {b.oddsSnapshot
-                    ? (b.oddsSnapshot * 100).toFixed(1) + "%"
-                    : ""}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div> */}
       </div>
     </div>
   );

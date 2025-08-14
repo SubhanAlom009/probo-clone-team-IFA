@@ -105,11 +105,17 @@ export default function BetForm({
           let win = false;
           let payout = 0;
           let found = false;
+          let isSelfMatch = false;
           allBets.forEach((doc) => {
             const b = doc.data();
             const userSide = b.yesUserId === userId ? "yes" : "no";
             if (b.status === "settled") {
               found = true;
+              // Check if this is a self-match
+              if (b.yesUserId === b.noUserId) {
+                isSelfMatch = true;
+                return; // Don't process win/loss for self-matches
+              }
               const isWinner =
                 (b.winner === "yes" && userSide === "yes") ||
                 (b.winner === "no" && userSide === "no");
@@ -120,7 +126,9 @@ export default function BetForm({
             }
           });
           if (found) {
-            if (win) {
+            if (isSelfMatch) {
+              push("Self-match settled. Commission deducted.", "info");
+            } else if (win) {
               push(`You WON! Payout: ₹${payout.toFixed(2)}`, "success");
             } else {
               push("You lost this event.", "error");
